@@ -18,7 +18,7 @@ jobs:
   release-audit:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Check public source tree
         run: |
           python3 - <<'PY'
@@ -52,7 +52,7 @@ jobs:
     needs: release-audit
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Compile AppKit companion
         run: >-
           clang plugins/vibe-research/scripts/companion/macos/main.m
@@ -63,7 +63,7 @@ jobs:
     needs: release-audit
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Install GTK and WebKitGTK
         run: sudo apt-get update && sudo apt-get install -y python3-cairo python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1
       - name: Check Linux companion
@@ -78,8 +78,8 @@ jobs:
       matrix:
         rid: [win-x64, win-arm64]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: "8.0.x"
       - name: Publish ${{ matrix.rid }}
@@ -90,7 +90,7 @@ jobs:
           -c Release -r ${{ matrix.rid }} --self-contained true
           -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
           -o "$env:RUNNER_TEMP/publish"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: companion-${{ matrix.rid }}
           path: ${{ runner.temp }}/publish/
@@ -99,8 +99,8 @@ jobs:
     runs-on: ubuntu-24.04
     needs: [macos-check, linux-check, windows-build]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/download-artifact@v8.0.2
         with:
           pattern: companion-*
           path: ${{ runner.temp }}/companions
@@ -131,7 +131,7 @@ jobs:
           rsync -a --exclude '.git' --exclude '.github' --exclude '__pycache__' --exclude '*.pyc' --exclude '.DS_Store' ./ "$stage/"
           (cd "$RUNNER_TEMP" && zip -9 -r "$GITHUB_WORKSPACE/$package_name.zip" "$package_name")
           sha256sum "$package_name.zip" > "$package_name.zip.sha256"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: vibe-research-complete-package
           path: |
@@ -139,7 +139,7 @@ jobs:
             Vibe-Research-Codex-*.zip.sha256
       - name: Attach package to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.3
         with:
           files: |
             Vibe-Research-Codex-*.zip

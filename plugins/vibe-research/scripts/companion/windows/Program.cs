@@ -194,7 +194,7 @@ internal sealed class CompanionButtonForm : Form
             researchButton.MotionPhase = motionPhase;
             researchButton.Invalidate();
         };
-        if (SystemInformation.MenuAnimation) motionTimer.Start();
+        if (SystemInformation.IsMenuAnimationEnabled) motionTimer.Start();
 
         entranceTimer = new System.Windows.Forms.Timer { Interval = 16 };
         entranceTimer.Tick += (_, _) =>
@@ -213,7 +213,7 @@ internal sealed class CompanionButtonForm : Form
 
     private void BeginEntrance()
     {
-        if (!SystemInformation.MenuAnimation) return;
+        if (!SystemInformation.IsMenuAnimationEnabled) return;
         entranceTarget = Location;
         entranceFrame = 0;
         Opacity = 0;
