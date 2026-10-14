@@ -1,0 +1,20 @@
+{
+  "name": "vibe-research",
+  "version": "0.4.0",
+  "description": "用可追溯研究图、多来源检索、洞察式精读与科研写作管理研究。",
+  "author": {
+    "name": "misiote"
+  },
+  "homepage": "https://github.com/misiote/vibe-research-codex",
+  "repository": "https://github.com/misiote/vibe-research-codex",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Vibe Research",
+    "shortDescription": "从研究问题到证据与实验，保留可接续过程。",
+    "longDescription": "本机研究工作台、持久文献检索、证据质量精读、研究版图与科研写作。研究文件独立于插件安装；凭据不进入项目备份。",
+    "developerName": "misiote",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "打开 Vibe Research 工作台，恢复我的研究项目。"
+  }
+}

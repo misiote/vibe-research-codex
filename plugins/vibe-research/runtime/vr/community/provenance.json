@@ -1,0 +1,30 @@
+{
+  "full_name": "K-Dense-AI/scientific-agent-skills",
+  "html_url": "https://github.com/K-Dense-AI/scientific-agent-skills",
+  "stargazers_count": 43547,
+  "forks_count": 3964,
+  "pushed_at": "2026-09-07T09:35:27Z",
+  "license": {
+    "key": "mit",
+    "name": "MIT License",
+    "spdx_id": "MIT",
+    "url": "https://api.github.com/licenses/mit",
+    "node_id": "MDc6TGljZW5zZTEz"
+  },
+  "commit": "9cf7d9aea7d84754db4c167ab04b299d33c444bc",
+  "checked_at": "2026-09-07",
+  "skills": [
+    "citation-management",
+    "scientific-critical-thinking"
+  ],
+  "adoption": "固定版本；启用文献检索/元数据核验流程、引用离线校验器和批判性精读清单。未声称有任务级效果验证。",
+  "adaptations": [
+    "validator.py 使用包内相对导入",
+    "requests 改为可选，仅提供离线校验入口；不调用网络 DOI 校验",
+    "不启用付费检索、强制图片生成或 Google Scholar 爬取"
+  ],
+  "upstream_hashes": {
+    "_common.py": "87540160163671b972c2fccb4d0a42db3cca2603c664d26d5da3ca5dbc7dfdd2",
+    "validate_citations.py": "b20abad7a10f722a7c404adc9884bec339fc960c82373698e73e49ba2015fba5"
+  }
+}

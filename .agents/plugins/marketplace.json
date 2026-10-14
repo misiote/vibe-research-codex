@@ -1,0 +1,20 @@
+{
+  "name": "vibe-research-local",
+  "interface": {
+    "displayName": "Vibe Research"
+  },
+  "plugins": [
+    {
+      "name": "vibe-research",
+      "source": {
+        "source": "local",
+        "path": "./plugins/vibe-research"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

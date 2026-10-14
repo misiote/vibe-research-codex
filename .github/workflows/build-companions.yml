@@ -1,0 +1,146 @@
+name: Build cross-platform companions
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "plugins/vibe-research/scripts/companion/**"
+      - "plugins/vibe-research/scripts/companion.py"
+      - ".github/workflows/build-companions.yml"
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release-audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check public source tree
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path(".")
+          forbidden_names = {".DS_Store", "VALIDATION.md", "IMPLEMENTATION.md", "ORIGINAL_PLAN.md", "EXPERT_TEAM_DESIGN.md", "RESEARCHOS_SOURCE.json"}
+          forbidden_parts = {"__pycache__", ".vibe-research", "projects"}
+          bad = []
+          for path in root.rglob("*"):
+              relative = path.relative_to(root)
+              if ".git" in relative.parts:
+                  continue
+              if path.name in forbidden_names or any(part in forbidden_parts for part in relative.parts):
+                  bad.append(str(relative))
+              elif path.is_file() and path.suffix in {".pyc", ".log"}:
+                  bad.append(str(relative))
+              elif path.is_file():
+                  try:
+                      text = path.read_text(encoding="utf-8")
+                  except (UnicodeDecodeError, OSError):
+                      continue
+                  if re.search(r"/(?:Users|home)/[^/]+/", text) or re.search(r"[A-Z]:\\\\Users\\\\[^\\\\]+", text):
+                      bad.append(str(relative) + " (local path)")
+          if bad:
+              raise SystemExit("Public tree contains private or generated files:\n" + "\n".join(sorted(set(bad))))
+          PY
+
+  macos-check:
+    needs: release-audit
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile AppKit companion
+        run: >-
+          clang plugins/vibe-research/scripts/companion/macos/main.m
+          -O -fobjc-arc -framework Cocoa -framework QuartzCore -framework WebKit
+          -o "$RUNNER_TEMP/VibeResearchCompanion"
+
+  linux-check:
+    needs: release-audit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GTK and WebKitGTK
+        run: sudo apt-get update && sudo apt-get install -y python3-cairo python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1
+      - name: Check Linux companion
+        run: |
+          python3 -m py_compile plugins/vibe-research/scripts/companion/linux/main.py
+          python3 plugins/vibe-research/scripts/companion/linux/main.py --check
+
+  windows-build:
+    needs: release-audit
+    runs-on: windows-2025
+    strategy:
+      matrix:
+        rid: [win-x64, win-arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Publish ${{ matrix.rid }}
+        shell: pwsh
+        run: >-
+          dotnet publish
+          plugins/vibe-research/scripts/companion/windows/VibeResearchCompanion.csproj
+          -c Release -r ${{ matrix.rid }} --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -o "$env:RUNNER_TEMP/publish"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: companion-${{ matrix.rid }}
+          path: ${{ runner.temp }}/publish/
+
+  package:
+    runs-on: ubuntu-24.04
+    needs: [macos-check, linux-check, windows-build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: companion-*
+          path: ${{ runner.temp }}/companions
+      - name: Add Windows binaries and refresh checksums
+        run: |
+          mkdir -p plugins/vibe-research/scripts/companion/windows/publish/win-x64
+          mkdir -p plugins/vibe-research/scripts/companion/windows/publish/win-arm64
+          cp "$RUNNER_TEMP/companions/companion-win-x64/VibeResearchCompanion.exe" plugins/vibe-research/scripts/companion/windows/publish/win-x64/
+          cp "$RUNNER_TEMP/companions/companion-win-arm64/VibeResearchCompanion.exe" plugins/vibe-research/scripts/companion/windows/publish/win-arm64/
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path("plugins/vibe-research")
+          sums = {
+              str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+              for path in root.rglob("*")
+              if path.is_file() and path.name != "SHA256SUMS.json" and "__pycache__" not in path.parts
+          }
+          (root / "SHA256SUMS.json").write_text(json.dumps(sums, indent=2) + "\n", encoding="utf-8")
+          PY
+      - name: Build release archive
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ "$version" = "$GITHUB_REF_NAME" ]; then version="dev-${GITHUB_SHA::7}"; fi
+          package_name="Vibe-Research-Codex-$version"
+          stage="$RUNNER_TEMP/$package_name"
+          mkdir -p "$stage"
+          rsync -a --exclude '.git' --exclude '.github' --exclude '__pycache__' --exclude '*.pyc' --exclude '.DS_Store' ./ "$stage/"
+          (cd "$RUNNER_TEMP" && zip -9 -r "$GITHUB_WORKSPACE/$package_name.zip" "$package_name")
+          sha256sum "$package_name.zip" > "$package_name.zip.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vibe-research-complete-package
+          path: |
+            Vibe-Research-Codex-*.zip
+            Vibe-Research-Codex-*.zip.sha256
+      - name: Attach package to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Vibe-Research-Codex-*.zip
+            Vibe-Research-Codex-*.zip.sha256

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vibe-research"
+version = "0.4.0"
+description = "Free-first, evidence-grounded research orchestration CLI"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+pdf = ["pypdf>=5,<7"]
+
+[project.scripts]
+vr = "vr.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["vr*"]
+
+[tool.setuptools.package-data]
+vr = ["templates/*.html", "templates/*.js", "community/*.json", "community/*.md"]
