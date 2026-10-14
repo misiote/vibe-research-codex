@@ -25,9 +25,16 @@ fi
 "$vr_codex_bin" plugin marketplace add "$vr_share_root"
 "$vr_codex_bin" plugin add vibe-research@vibe-research-local
 "$vr_python" "$vr_share_root/plugins/vibe-research/scripts/install_cli.py" --workspace "${VIBE_RESEARCH_WORKSPACE:-$HOME/VibeResearch}"
+vr_workspace=${VIBE_RESEARCH_WORKSPACE:-$HOME/VibeResearch}
 
 if ! "$vr_python" "$vr_share_root/plugins/vibe-research/scripts/companion.py" --workspace "${VIBE_RESEARCH_WORKSPACE:-$HOME/VibeResearch}" --check; then
   echo "悬浮研究伴侣尚未就绪；浏览器工作台仍可使用。按 INSTALL.md 补齐本系统依赖后重试。" >&2
 fi
 
-echo "Vibe Research 已安装。重启 ChatGPT/Codex 后可点击插件默认提示；终端可运行 vr-workbench。"
+echo "Vibe Research 已作为 Codex 插件安装并启用。"
+echo "下一步："
+echo "1. 用 Command-Q 完全退出 ChatGPT/Codex，再重新打开。"
+echo "2. 在插件目录的 Vibe Research 来源中确认插件显示为已安装。"
+echo "3. 把 $vr_workspace 添加为 Codex 本地项目，并在该项目中新建聊天。"
+echo "4. 点击插件默认提示，或发送“打开 Vibe Research 工作台”。"
+echo "研究伴侣会在这次对话开始后出现；终端也可运行 vr-workbench。"

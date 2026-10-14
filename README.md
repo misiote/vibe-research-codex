@@ -25,10 +25,15 @@ plugins/vibe-research/scripts/companion/
 
 1. 下载并解压 GitHub Release 完整包。
 2. 双击 `安装Vibe Research.command`。
-3. 重启 Codex，在 Vibe Research 项目中开始或继续对话。
-4. 点击悬浮研究伴侣打开工作台。
+3. 安装结束后用 `Command-Q` 完全退出 ChatGPT/Codex，再重新打开。
+4. 打开插件目录，在来源 **Vibe Research** 下确认插件显示为已安装。
+5. 把安装器显示的研究工作区（默认 `~/VibeResearch`）添加为 Codex 本地项目。
+6. 在这个项目中新建聊天，点击插件默认提示，或发送“打开 Vibe Research 工作台”。
+7. 插件接手对话后会唤起收起的研究伴侣；点击它打开工作台。
 
 系统需要 Python 3.9+；首次构建悬浮入口需要 Xcode Command Line Tools 提供的 `clang`。
+
+安装器会调用 Codex App 自带的 CLI，依次登记随包 marketplace、安装并启用 `vibe-research@vibe-research-local`，再建立默认研究工作区。Codex App 与 CLI 共用插件缓存，因此无需把脚本复制进 App 包。研究伴侣不是登录启动项，刚打开 App 时不会自行出现；它会在新的 Vibe Research 对话开始后由插件检查并唤起。
 
 ## Windows
 

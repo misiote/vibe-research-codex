@@ -18,6 +18,16 @@
 sh install.sh
 ```
 
+安装器会使用 `/Applications/ChatGPT.app/Contents/Resources/codex`（或 `PATH` 中的 `codex`）登记随包 marketplace，并安装、启用 Vibe Research。安装完成后：
+
+1. 用 `Command-Q` 完全退出 ChatGPT/Codex，然后重新打开；只关闭窗口不足以重新载入插件。
+2. 打开插件目录，选择来源 **Vibe Research**，确认 Vibe Research 显示为已安装。
+3. 把默认研究工作区 `~/VibeResearch` 添加为 Codex 本地项目；设置过 `VIBE_RESEARCH_WORKSPACE` 时使用对应目录。
+4. 在该项目中新建聊天。点击插件默认提示，或发送“打开 Vibe Research 工作台”。
+5. 插件开始处理这次对话后，收起的研究伴侣才会出现；点击伴侣显示研究现场。
+
+插件代码安装到 Codex 的本机缓存，研究数据保存在独立工作区。研究伴侣不作为系统登录项运行，也不会在尚未使用插件的普通聊天中出现。
+
 ## Linux
 
 在解压目录运行：
@@ -53,7 +63,7 @@ GitHub Release 完整包内置 x64/arm64 研究伴侣；展开工作台依赖系
 
 ## 第一次启动
 
-插件会要求选择独立研究工作区。工具代码和研究数据分离：更新或卸载插件不会删除另行选择的工作区。
+安装器会建立默认研究工作区，并为新目录写入只启用 Vibe Research 的项目配置；已有 `.codex/config.toml` 时不会覆盖。工具代码和研究数据分离：更新或卸载插件不会删除另行选择的工作区。
 
 也可以直接从终端进入：
 

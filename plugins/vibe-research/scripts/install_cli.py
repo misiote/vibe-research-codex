@@ -90,6 +90,7 @@ def main():
     workspace = Path(args.workspace).expanduser().resolve()
     bin_dir = Path(args.bin_dir).expanduser().resolve() if args.bin_dir else default_bin_dir()
     config_dir = Path(args.config_dir).expanduser().resolve() if args.config_dir else default_config_dir()
+    workspace.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
     config_dir.mkdir(parents=True, exist_ok=True)
     config_file = config_dir / "launcher.json"
@@ -107,7 +108,25 @@ def main():
         command.chmod(command.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
     on_path = str(bin_dir) in os.environ.get("PATH", "").split(os.pathsep)
-    print(json.dumps({"command": str(command), "workspace": str(workspace), "config": str(config_file), "on_path": on_path}, ensure_ascii=False, indent=2))
+    project_config = workspace / ".codex" / "config.toml"
+    project_config_created = False
+    if not project_config.exists():
+        project_config.parent.mkdir(parents=True, exist_ok=True)
+        project_config.write_text(
+            '[plugins."vibe-research@vibe-research-local"]\n'
+            'enabled = true\n',
+            encoding="utf8",
+        )
+        project_config_created = True
+
+    print(json.dumps({
+        "command": str(command),
+        "workspace": str(workspace),
+        "config": str(config_file),
+        "project_config": str(project_config),
+        "project_config_created": project_config_created,
+        "on_path": on_path,
+    }, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
