@@ -39,7 +39,7 @@ internal static class Program
     private static bool AcquireInstanceLock(string? pidFilePath)
     {
         if (string.IsNullOrWhiteSpace(pidFilePath)) return true;
-        var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Path.GetFullPath(pidFilePath))))[..20];
+        var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Path.GetFullPath(pidFilePath).ToUpperInvariant())))[..20];
         instanceMutex = new Mutex(true, "Local\\VibeResearchCompanion-" + digest, out var created);
         return created;
     }
@@ -47,6 +47,7 @@ internal static class Program
 
 internal sealed class ResearchCompanionButton : Control
 {
+    public event EventHandler? KeyboardActivate;
     public double MotionPhase { get; set; }
     public Color StatusColor { get; set; } = Color.FromArgb(31, 224, 150);
 
@@ -54,7 +55,10 @@ internal sealed class ResearchCompanionButton : Control
     {
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true);
         Cursor = Cursors.Hand;
-        TabStop = false;
+        SetStyle(ControlStyles.Selectable, true);
+        TabStop = true;
+        AccessibleName = "打开研究现场";
+        AccessibleRole = AccessibleRole.PushButton;
         AccessibleDescription = "打开 Vibe Research 研究现场；拖拽可移动入口";
     }
 
@@ -96,6 +100,12 @@ internal sealed class ResearchCompanionButton : Control
             g.FillEllipse(node, points[index].X - 4, points[index].Y - 4, 8, 8);
         }
     }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (e.KeyCode is Keys.Enter or Keys.Space) { KeyboardActivate?.Invoke(this, EventArgs.Empty); e.Handled = true; }
+        base.OnKeyDown(e);
+    }
 }
 
 internal sealed class CompanionButtonForm : Form
@@ -118,6 +128,8 @@ internal sealed class CompanionButtonForm : Form
     private int entranceFrame;
     private double motionPhase;
     private long controlVersion;
+    private bool controlBusy;
+    private string? lastControl;
 
     public CompanionButtonForm(string url, string title, string? uiState, string? pidFile, string? controlFile)
     {
@@ -125,8 +137,11 @@ internal sealed class CompanionButtonForm : Form
         pidFilePath = pidFile;
         controlFilePath = controlFile;
 
+        Text = "Vibe Research 研究伴侣";
+        AccessibleName = Text;
+
         FormBorderStyle = FormBorderStyle.None;
-        ShowInTaskbar = false;
+        ShowInTaskbar = true;
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
         ClientSize = new Size(ButtonSize, ButtonSize);
@@ -144,10 +159,12 @@ internal sealed class CompanionButtonForm : Form
         researchButton.MouseMove += ContinueButtonGesture;
         researchButton.MouseUp += EndButtonGesture;
         researchButton.Click += ToggleFromClick;
+        researchButton.KeyboardActivate += async (_, _) => await ToggleWorkbenchAsync();
         Controls.Add(researchButton);
 
         var menu = new ContextMenuStrip();
         menu.Items.Add("打开研究现场", null, async (_, _) => await ShowWorkbenchAsync());
+        menu.Items.Add("重置入口位置", null, (_, _) => ResetPosition());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("退出研究伴侣", null, (_, _) => Close());
         researchButton.ContextMenuStrip = menu;
@@ -156,6 +173,7 @@ internal sealed class CompanionButtonForm : Form
         {
             researchButton.StatusColor = color;
             researchButton.Invalidate();
+            PersistState();
         });
         workbench.LocationChanged += (_, _) => PersistState();
         workbench.SizeChanged += (_, _) => PersistState();
@@ -178,11 +196,28 @@ internal sealed class CompanionButtonForm : Form
         controlTimer = new System.Windows.Forms.Timer { Interval = 400 };
         controlTimer.Tick += async (_, _) =>
         {
+            if (!Screen.AllScreens.Any(s => s.WorkingArea.Contains(Bounds))) ResetPosition();
+            if (controlBusy) return;
             var next = ReadControlVersion();
             if (next != 0 && next != controlVersion)
             {
                 controlVersion = next;
-                await ToggleWorkbenchAsync();
+                controlBusy = true;
+                try
+                {
+                    var command = ReadControlCommand();
+                    switch (command.Action)
+                    {
+                        case "show": await ShowWorkbenchAsync(); break;
+                        case "hide": HideWorkbench(); break;
+                        case "reset-position": ResetPosition(); break;
+                        case "stop": lastControl = command.Id; PersistState(); Close(); return;
+                        default: await ToggleWorkbenchAsync(); break;
+                    }
+                    lastControl = command.Id;
+                    PersistState();
+                }
+                finally { controlBusy = false; }
             }
         };
         controlTimer.Start();
@@ -230,7 +265,7 @@ internal sealed class CompanionButtonForm : Form
             var root = document.RootElement;
             if (!root.TryGetProperty("button_x", out var xValue) || !root.TryGetProperty("button_y", out var yValue)) return null;
             var point = new Point((int)Math.Round(xValue.GetDouble()), (int)Math.Round(yValue.GetDouble()));
-            return Screen.AllScreens.Any(screen => screen.WorkingArea.Contains(new Point(point.X + ButtonSize / 2, point.Y + ButtonSize / 2)))
+            return Screen.AllScreens.Any(screen => screen.WorkingArea.Contains(new Rectangle(point, Size)))
                 ? point
                 : null;
         }
@@ -246,20 +281,31 @@ internal sealed class CompanionButtonForm : Form
         return new Point(area.Right - ButtonSize - 18, area.Top + 18);
     }
 
+    private void ResetPosition()
+    {
+        entranceTimer?.Stop();
+        Opacity = 1;
+        Location = DefaultButtonLocation(Screen.PrimaryScreen);
+        PersistState();
+    }
+
     private void BeginButtonGesture(object? sender, MouseEventArgs eventArgs)
     {
         if (eventArgs.Button != MouseButtons.Left) return;
+        entranceTimer.Stop();
+        Opacity = 1;
+        suppressClick = false;
         pointerDown = true;
         dragged = false;
-        pointerStart = Cursor.Position;
+        pointerStart = researchButton.PointToScreen(eventArgs.Location);
         formStart = Location;
         researchButton.Capture = true;
     }
 
     private void ContinueButtonGesture(object? sender, MouseEventArgs eventArgs)
     {
-        if (!pointerDown || eventArgs.Button != MouseButtons.Left) return;
-        var current = Cursor.Position;
+        if (!pointerDown) return;
+        var current = researchButton.PointToScreen(eventArgs.Location);
         var delta = new Size(current.X - pointerStart.X, current.Y - pointerStart.Y);
         if (Math.Abs(delta.Width) > 3 || Math.Abs(delta.Height) > 3) dragged = true;
         if (!dragged) return;
@@ -274,6 +320,15 @@ internal sealed class CompanionButtonForm : Form
     private void EndButtonGesture(object? sender, MouseEventArgs eventArgs)
     {
         if (eventArgs.Button != MouseButtons.Left) return;
+        var current = researchButton.PointToScreen(eventArgs.Location);
+        var delta = new Size(current.X - pointerStart.X, current.Y - pointerStart.Y);
+        if (Math.Abs(delta.Width) > 3 || Math.Abs(delta.Height) > 3)
+        {
+            dragged = true;
+            var area = Screen.FromPoint(current).WorkingArea;
+            Location = new Point(Math.Clamp(formStart.X + delta.Width, area.Left, area.Right - Width),
+                                 Math.Clamp(formStart.Y + delta.Height, area.Top, area.Bottom - Height));
+        }
         pointerDown = false;
         researchButton.Capture = false;
         suppressClick = dragged;
@@ -282,7 +337,7 @@ internal sealed class CompanionButtonForm : Form
 
     private async void ToggleFromClick(object? sender, EventArgs eventArgs)
     {
-        if (suppressClick)
+        if (dragged || suppressClick)
         {
             suppressClick = false;
             return;
@@ -318,6 +373,19 @@ internal sealed class CompanionButtonForm : Form
         catch (IOException) { return 0; }
     }
 
+    private (string Action, string? Id) ReadControlCommand()
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(controlFilePath!));
+            var root = document.RootElement;
+            if (root.ValueKind == JsonValueKind.Object)
+                return (root.GetProperty("action").GetString() ?? "toggle", root.GetProperty("request_id").GetString());
+        }
+        catch (Exception) { }
+        return ("toggle", null);
+    }
+
     private void PersistState()
     {
         if (string.IsNullOrWhiteSpace(uiStatePath) || workbench is null) return;
@@ -325,6 +393,12 @@ internal sealed class CompanionButtonForm : Form
         {
             expanded = workbench.Visible,
             separate_windows = true,
+            desktop = NativeMethods.DesktopName(),
+            button_visible = Visible,
+            last_control = lastControl,
+            control_protocol = 1,
+            navigation = workbench.NavigationStatus,
+            navigation_error = workbench.NavigationError,
             button_x = Left,
             button_y = Top,
             button_width = Width,
@@ -373,21 +447,25 @@ internal sealed class WorkbenchForm : Form
     private bool exiting;
 
     public Rectangle WebBounds => webView.Bounds;
+    public string NavigationStatus { get; private set; } = "not_loaded";
+    public string? NavigationError { get; private set; }
 
     public WorkbenchForm(string workbenchUrl, string title, Action collapseAction, Action<Color> statusAction)
     {
         url = workbenchUrl;
         collapse = collapseAction;
         statusChanged = statusAction;
+        Text = title;
+        AccessibleName = title;
         FormBorderStyle = FormBorderStyle.None;
-        ShowInTaskbar = false;
+        ShowInTaskbar = true;
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
         BackColor = Color.FromArgb(239, 244, 252);
         ClientSize = new Size(1120, 780);
         MinimumSize = MaximumSize = Size;
 
-        var header = new Panel { Dock = DockStyle.Top, Height = HeaderHeight, BackColor = Color.FromArgb(26, 36, 56) };
+        var header = new Panel { Dock = DockStyle.Top, Height = HeaderHeight, Padding = new Padding(12, 15, 18, 15), BackColor = Color.FromArgb(26, 36, 56) };
         header.MouseDown += DragHeader;
         var titleLabel = new Label
         {
@@ -402,8 +480,7 @@ internal sealed class WorkbenchForm : Form
         {
             Text = "收起",
             Size = new Size(62, 32),
-            Location = new Point(ClientSize.Width - 80, 15),
-            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+            Dock = DockStyle.Right,
             FlatStyle = FlatStyle.Flat,
             ForeColor = Color.White,
             BackColor = Color.FromArgb(47, 68, 99),
@@ -431,8 +508,10 @@ internal sealed class WorkbenchForm : Form
     public async Task<bool> ShowWorkbenchAsync(Screen screen)
     {
         var area = screen.WorkingArea;
-        var width = Math.Min(1120, Math.Max(760, area.Width - 120));
-        var height = Math.Min(780, Math.Max(560, area.Height - 100));
+        var width = Math.Min(1120, Math.Max(320, area.Width - 80));
+        var height = Math.Min(780, Math.Max(320, area.Height - 80));
+        MinimumSize = Size.Empty;
+        MaximumSize = Size.Empty;
         Size = new Size(width, height);
         MinimumSize = MaximumSize = Size;
         Location = new Point(area.Left + (area.Width - width) / 2, area.Top + (area.Height - height) / 2);
@@ -444,6 +523,7 @@ internal sealed class WorkbenchForm : Form
             if (!loaded)
             {
                 statusChanged(Color.FromArgb(255, 171, 43));
+                NavigationStatus = "loading";
                 await webView.EnsureCoreWebView2Async();
                 webView.CoreWebView2.NewWindowRequested += (_, eventArgs) =>
                 {
@@ -455,14 +535,20 @@ internal sealed class WorkbenchForm : Form
                     }
                 };
                 webView.CoreWebView2.NavigationCompleted += (_, eventArgs) =>
+                {
+                    NavigationStatus = eventArgs.IsSuccess ? "ready" : "failed";
+                    NavigationError = eventArgs.IsSuccess ? null : eventArgs.WebErrorStatus.ToString();
                     statusChanged(eventArgs.IsSuccess ? Color.FromArgb(31, 224, 150) : Color.FromArgb(244, 75, 86));
+                };
                 webView.Source = new Uri(url);
                 loaded = true;
             }
             return true;
         }
-        catch (Exception)
+        catch (Exception exception)
         {
+            NavigationStatus = "failed";
+            NavigationError = exception.Message;
             statusChanged(Color.FromArgb(244, 75, 86));
             Hide();
             MessageBox.Show(
@@ -490,6 +576,15 @@ internal sealed class WorkbenchForm : Form
 
 internal static class NativeMethods
 {
+    [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] private static extern IntPtr GetThreadDesktop(uint threadId);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern bool GetUserObjectInformation(IntPtr handle, int index, StringBuilder value, int length, out int needed);
+    internal static string DesktopName()
+    {
+        var name = new StringBuilder(256);
+        return GetUserObjectInformation(GetThreadDesktop(GetCurrentThreadId()), 2, name, 512, out _) ? name.ToString() : "unknown";
+    }
     [DllImport("user32.dll")]
     internal static extern bool ReleaseCapture();
 

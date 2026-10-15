@@ -23,6 +23,9 @@ def parse_args():
     mode.add_argument("--status", action="store_true")
     mode.add_argument("--stop", action="store_true")
     mode.add_argument("--toggle", action="store_true")
+    mode.add_argument("--show", action="store_true")
+    mode.add_argument("--hide", action="store_true")
+    mode.add_argument("--reset-position", action="store_true")
     return parser.parse_args()
 
 
@@ -42,10 +45,15 @@ def process_alive(pid):
     if sys.platform == "win32":
         import ctypes
 
-        process = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+        from ctypes import wintypes
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel.OpenProcess.restype = wintypes.HANDLE
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        process = kernel.OpenProcess(0x1000, False, pid)
         if not process:
             return False
-        ctypes.windll.kernel32.CloseHandle(process)
+        kernel.CloseHandle(process)
         return True
     try:
         os.kill(pid, 0)
@@ -101,13 +109,13 @@ def check_host(plugin, host):
     if host == "windows":
         rid = windows_rid()
         packaged = windows_packaged_binary(plugin, rid)
-        dotnet = shutil.which("dotnet")
-        ok = packaged.is_file() or bool(dotnet)
+        sdk_ready = windows_sdk_ready()
+        ok = packaged.is_file() or sdk_ready
         detail = (
             "已找到随包研究伴侣"
             if packaged.is_file()
             else "可用 .NET 8 SDK 首次构建研究伴侣"
-            if dotnet
+            if sdk_ready
             else "安装包缺少对应 Windows 伴侣；请使用 GitHub Release 完整包，或安装 .NET 8 SDK"
         )
         return {"ok": ok, "platform": host, "entry": str(packaged), "runtime": rid, "detail": detail}
@@ -153,6 +161,54 @@ def windows_rid():
     return "win-arm64" if machine in {"arm64", "aarch64"} else "win-x64"
 
 
+def windows_desktop_info():
+    import ctypes
+    from ctypes import wintypes as w
+    user = ctypes.WinDLL('user32', use_last_error=True)
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    user.GetThreadDesktop.argtypes = [w.DWORD]
+    user.GetThreadDesktop.restype = w.HANDLE
+    user.OpenInputDesktop.argtypes = [w.DWORD, w.BOOL, w.DWORD]
+    user.OpenInputDesktop.restype = w.HANDLE
+    user.CloseDesktop.argtypes = [w.HANDLE]
+    user.GetUserObjectInformationW.argtypes = [w.HANDLE, ctypes.c_int, w.LPVOID, w.DWORD, ctypes.POINTER(w.DWORD)]
+    def name(handle):
+        buffer = ctypes.create_unicode_buffer(256)
+        needed = w.DWORD()
+        return buffer.value if handle and user.GetUserObjectInformationW(handle, 2, buffer, ctypes.sizeof(buffer), ctypes.byref(needed)) else 'unknown'
+    handle = user.OpenInputDesktop(0, False, 1)
+    try:
+        return {'launcher': name(user.GetThreadDesktop(kernel.GetCurrentThreadId())), 'input': name(handle)}
+    finally:
+        if handle: user.CloseDesktop(handle)
+
+
+def windows_control(path, ui_path, action, timeout=20):
+    request_id = str(time.time_ns())
+    write_state(path, {'action': action, 'request_id': request_id})
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        ui = load_state(ui_path)
+        if ui.get('last_control') == request_id:
+            return ui
+        time.sleep(.1)
+    raise RuntimeError('研究伴侣未确认操作完成；请检查工作区 companion.log 或重新启动。')
+
+
+def windows_sdk_ready():
+    dotnet = shutil.which("dotnet")
+    if not dotnet:
+        return False
+    try:
+        completed = run([dotnet, "--list-sdks"], timeout=10)
+        return completed.returncode == 0 and any(
+            line.split(".")[0].isdigit() and int(line.split(".")[0]) >= 8
+            for line in completed.stdout.splitlines()
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def windows_packaged_binary(plugin, rid):
     return plugin / "scripts" / "companion" / "windows" / "publish" / rid / "VibeResearchCompanion.exe"
 
@@ -162,10 +218,10 @@ def build_windows_app(plugin, runtime, rid):
     if packaged.is_file():
         return packaged
     dotnet = shutil.which("dotnet")
-    if not dotnet:
+    if not dotnet or not windows_sdk_ready():
         raise RuntimeError("安装包缺少对应 Windows 研究伴侣。请改用 GitHub Release 完整包，或安装 .NET 8 SDK 后重试。")
     project = plugin / "scripts" / "companion" / "windows" / "VibeResearchCompanion.csproj"
-    digest = hashlib.sha256(project.read_bytes()).hexdigest()[:16]
+    digest = hashlib.sha256(project.read_bytes() + project.with_name('Program.cs').read_bytes() + project.with_name('app.manifest').read_bytes()).hexdigest()[:16]
     output = runtime / "bin" / digest / rid
     binary = output / "VibeResearchCompanion.exe"
     if binary.is_file():
@@ -282,6 +338,8 @@ def launch_linux(plugin, url, title, ui_state_path, pid_file_path, log_path):
 
 def launch_windows(plugin, runtime, url, title, ui_state_path, pid_file_path, control_path, log_path):
     binary = build_windows_app(plugin, runtime, windows_rid())
+    environment = os.environ.copy()
+    environment["WEBVIEW2_USER_DATA_FOLDER"] = str(runtime / "webview2")
     creationflags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
     log_handle = log_path.open("ab")
     subprocess.Popen(
@@ -290,6 +348,7 @@ def launch_windows(plugin, runtime, url, title, ui_state_path, pid_file_path, co
         stdout=log_handle,
         stderr=log_handle,
         creationflags=creationflags,
+        env=environment,
         close_fds=True,
     )
     log_handle.close()
@@ -301,7 +360,7 @@ def main():
     plugin = Path(__file__).resolve().parents[1]
     workspace = Path(args.workspace).expanduser().resolve()
     runtime = workspace / ".vibe-research" / "companion"
-    identity = hashlib.sha256(str(workspace).encode()).hexdigest()[:12]
+    identity = hashlib.sha256(os.path.normcase(str(workspace)).encode()).hexdigest()[:12]
     state_path = runtime / (identity + ".json")
     ui_state_path = runtime / (identity + ".ui.json")
     pid_file_path = runtime / (identity + ".pid")
@@ -314,35 +373,50 @@ def main():
     except (OSError, ValueError):
         pid_file_matches = False
     alive = pid_file_matches and process_alive(state.get("pid")) is not False
+    ui = load_state(ui_state_path)
+    desktop = windows_desktop_info() if host == 'windows' else {}
+    visible_to_user = alive and ui.get('desktop') == desktop.get('input') and ui.get('button_visible', False) if host == 'windows' else alive
 
     if args.check:
         result = check_host(plugin, host)
         print(json.dumps(result, ensure_ascii=False))
         return 0 if result["ok"] else 1
     if args.status:
-        print(json.dumps({**state, "supported": host != "unsupported", "platform": host, "running": alive, "ui": load_state(ui_state_path)}, ensure_ascii=False))
+        print(json.dumps({**state, "supported": host != "unsupported", "platform": host, "running": alive, "visible_to_user": visible_to_user, "desktop": desktop, "ui": ui}, ensure_ascii=False))
         return 0
     if args.stop:
         if host == "macos":
             cleanup_legacy_macos_companions()
         if alive:
-            os.kill(state["pid"], signal.SIGTERM)
+            if host == 'windows' and ui.get('control_protocol') == 1:
+                windows_control(control_path, ui_state_path, 'stop', timeout=5)
+                for _ in range(50):
+                    if process_alive(state['pid']) is False: break
+                    time.sleep(.1)
+                else: raise RuntimeError('研究伴侣仍在清理退出，请稍后重试，未替换运行中的程序。')
+            else:
+                os.kill(state["pid"], signal.SIGTERM)
         state_path.unlink(missing_ok=True)
         control_path.unlink(missing_ok=True)
         print(json.dumps({"running": False, "stopped": alive, "platform": host}, ensure_ascii=False))
         return 0
-    if args.toggle:
+    if args.toggle or args.show or args.hide or args.reset_position:
         if not alive:
             raise RuntimeError("研究伴侣尚未运行。")
         if host == "windows":
-            write_state(control_path, time.time_ns())
+            action = 'show' if args.show else 'hide' if args.hide else 'reset-position' if args.reset_position else 'toggle'
+            ui = windows_control(control_path, ui_state_path, action)
         else:
+            if not args.toggle: raise RuntimeError('此控制命令目前仅适用于 Windows。')
             os.kill(state["pid"], signal.SIGUSR1)
-        time.sleep(0.45)
-        print(json.dumps({"running": True, "pid": state["pid"], "platform": host, "ui": load_state(ui_state_path)}, ensure_ascii=False))
+            time.sleep(.45)
+            ui = load_state(ui_state_path)
+        print(json.dumps({"running": True, "pid": state["pid"], "platform": host, "ui": ui}, ensure_ascii=False))
         return 0
     if host == "unsupported":
         raise RuntimeError("此系统尚未提供悬浮研究伴侣；工作台仍可在浏览器中使用。")
+    if host == 'windows' and not alive and desktop['launcher'] != desktop['input']:
+        raise RuntimeError('当前命令位于隔离桌面 '+desktop['launcher']+'，不会启动不可见窗口。请在 Windows 实际桌面运行 vr-companion.cmd；Codex 中需使用获准的非沙箱桌面启动。')
 
     if host == "macos":
         cleanup_legacy_macos_companions()

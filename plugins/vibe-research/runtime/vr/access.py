@@ -14,13 +14,13 @@ GUIDES={
 
 def context(root,provider,network):
     if provider not in GUIDES or network not in ('campus','off_campus','unknown'):raise ResearchError('无效的来源或网络条件')
-    p=Path(root)/'research/access-context.json';data=json.loads(p.read_text()) if p.exists() else {}
+    p=Path(root)/'research/access-context.json';data=json.loads(p.read_text(encoding="utf8")) if p.exists() else {}
     data[provider]={'network':network,'execution':'local','updated_at':now()};atomic(p,json.dumps(data,ensure_ascii=False,indent=2))
     return {'saved':True,'note':'已保存网络条件；尚未证明目标数据可访问'}
 
 def saved_context(root,provider):
     p=Path(root)/'research/access-context.json'
-    return json.loads(p.read_text()).get(provider,{}) if p.exists() else {}
+    return json.loads(p.read_text(encoding="utf8")).get(provider,{}) if p.exists() else {}
 
 def environment_fingerprint():
     # Used only to invalidate checks; no IP/SSID or raw proxy address is saved.
@@ -61,11 +61,11 @@ def verify(root,provider,query):
         except (OSError,ValueError,ResearchError):result.update(status='blocked',note='网络、返回格式或配置未通过；检查执行主机、校园条件和官方权限。')
     # Never persist secret, request URL or an echoed response body.
     result['query']=query
-    p=Path(root)/'research/access-checks.json';saved=json.loads(p.read_text()) if p.exists() else {};saved[provider]=result;atomic(p,json.dumps(saved,ensure_ascii=False,indent=2))
+    p=Path(root)/'research/access-checks.json';saved=json.loads(p.read_text(encoding="utf8")) if p.exists() else {};saved[provider]=result;atomic(p,json.dumps(saved,ensure_ascii=False,indent=2))
     return result
 
 def view(root):
-    p=Path(root)/'research/access-checks.json';checks=json.loads(p.read_text()) if p.exists() else {}
+    p=Path(root)/'research/access-checks.json';checks=json.loads(p.read_text(encoding="utf8")) if p.exists() else {}
     for item in checks.values():item['recheck_required']=item.get('environment')!=environment_fingerprint() or item.get('network_context',{})!=saved_context(root,item['provider']) or time.time()-__import__('datetime').datetime.fromisoformat(item['checked_at']).timestamp()>86400
     return checks
 

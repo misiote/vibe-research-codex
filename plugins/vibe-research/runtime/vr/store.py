@@ -329,9 +329,9 @@ class Store:
         home = root / ".research"
         if (home / "research.db").exists():
             raise ResearchError("数据库已存在，restore 不覆盖；投影修复请用 repair")
-        nodes = json.loads((home / "nodes.json").read_text())
-        graph = json.loads((home / "branches.json").read_text())
-        events = [json.loads(line) for line in (home / "events.jsonl").read_text().splitlines() if line]
+        nodes = json.loads((home / "nodes.json").read_text(encoding="utf8"))
+        graph = json.loads((home / "branches.json").read_text(encoding="utf8"))
+        events = [json.loads(line) for line in (home / "events.jsonl").read_text(encoding="utf8").splitlines() if line]
         if nodes["schema"] != 1 or graph["schema"] != 1 or nodes["revision"] != graph["revision"] or nodes["revision"] != (events[-1]["seq"] if events else 0):
             raise ResearchError("快照 schema/revision 不一致")
         # Build in an isolated directory; validate before installing it.

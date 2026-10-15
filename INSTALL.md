@@ -53,9 +53,13 @@ sudo apt install python3-cairo python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-安装器先从 `PATH` 查找 `codex`，然后检查默认位置 `%LOCALAPPDATA%\Programs\OpenAI\Codex\bin\codex.exe`。Python 可由 `python` 或 `py -3` 提供。
+安装器先从 `PATH` 查找 `codex`，然后检查默认位置 `%LOCALAPPDATA%\Programs\OpenAI\Codex\bin\codex.exe`。Python 可由 `python` 或 `py -3` 提供；也支持 `VIBE_RESEARCH_PYTHON` 指定解释器，并可检测 Codex 自带的 Python。解释器须为 3.9 或更高版本。
 
 GitHub Release 完整包内置 x64/arm64 研究伴侣；展开工作台依赖系统 WebView2 Runtime（Windows 10/11 通常已随 Edge 安装）。源码包缺少预编译程序时，可安装 .NET 8 SDK 让工具首次构建。首次迁移时先用空项目确认悬浮入口、工作台和本机数据库连接，再恢复正式研究数据。
+
+Windows 安装器还会创建 `vr-companion.cmd` 与 `vr.cmd`。在实际桌面的终端运行 `vr-companion.cmd` 可启动悬浮入口；点击展开/收起，按住拖动，右键重置位置或退出。`vr-companion.cmd --status` 的 `visible_to_user: true` 才表示入口位于当前用户桌面；Codex 隔离桌面中的启动会给出明确提示。`--show`、`--hide`、`--reset-position` 可控制已运行的入口。
+
+Windows 工作台内置本地 PDF 阅读器，可翻页、缩放和查看本页文本；无需联网加载阅读器。新项目默认选择 arXiv、Crossref 和 OpenAlex，仍以实际连接检查结果为准。
 
 ## Windows + WSL
 

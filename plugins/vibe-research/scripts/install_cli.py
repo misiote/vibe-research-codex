@@ -58,6 +58,8 @@ def plugin_root(data):
 
 def main():
     data=settings()
+    if os.name == "nt":
+        os.environ.setdefault("VR_RUNTIME_DIR",str(CONFIG.parent/"runtime"))
     parser=argparse.ArgumentParser(description="启动或复用 Vibe Research 本机工作台")
     parser.add_argument("--workspace")
     parser.add_argument("--port",type=int)
@@ -70,7 +72,8 @@ def main():
     if args.show_config:
         print(json.dumps({"workspace":str(workspace),"port":port,"plugin_root":str(root)},ensure_ascii=False,indent=2))
         return
-    command=[sys.executable,str(root/"scripts/workbench.py"),"--workspace",str(workspace),"--port",str(port)]
+    python_args=["-X","utf8"] if os.name == "nt" else []
+    command=[sys.executable,*python_args,str(root/"scripts/workbench.py"),"--workspace",str(workspace),"--port",str(port)]
     if args.no_open: command.append("--no-open")
     raise SystemExit(subprocess.call(command))
 
@@ -101,7 +104,24 @@ def main():
     if os.name == "nt":
         command = bin_dir / "vr-workbench.cmd"
         python = str(Path(sys.executable).resolve()).replace("%", "%%")
-        command.write_text('@echo off\r\n"' + python + '" "%~dp0vr-workbench.py" %*\r\n', encoding="utf8")
+        command.write_text('@echo off\nchcp 65001 >nul\n"' + python + '" -X utf8 "%~dp0vr-workbench.py" %*\n', encoding="utf8")
+        bootstrap = '''import argparse,os,runpy,subprocess,sys
+from pathlib import Path
+api=runpy.run_path(str(Path(__file__).with_name("vr-workbench.py")),run_name="vr_launcher_settings")
+data=api["settings"]();root=api["plugin_root"](data)
+os.environ.setdefault("VR_RUNTIME_DIR",str(api["CONFIG"].parent/"runtime"))
+'''
+        companion_helper=bin_dir/'vr-companion.py'
+        companion_helper.write_text(bootstrap+'''parser=argparse.ArgumentParser(add_help=False)
+parser.add_argument("--workspace",default=data.get("workspace"))
+parser.add_argument("--port",type=int,default=data.get("port",8766))
+args,rest=parser.parse_known_args()
+raise SystemExit(subprocess.call([sys.executable,"-X","utf8",str(root/"scripts/companion.py"),"--workspace",str(args.workspace),"--port",str(args.port),*rest]))
+''',encoding='utf8')
+        (bin_dir/'vr.py').write_text(bootstrap+'''raise SystemExit(subprocess.call([sys.executable,"-X","utf8",str(root/"runtime/bin/vr"),*sys.argv[1:]]))
+''',encoding='utf8')
+        for name in ('vr-companion','vr'):
+            (bin_dir/(name+'.cmd')).write_text('@echo off\nchcp 65001 >nul\n"'+python+'" -X utf8 "%~dp0'+name+'.py" %*\n',encoding='utf8')
     else:
         command = bin_dir / "vr-workbench"
         command.write_text("#!/bin/sh\nexec " + shell_quote(Path(sys.executable).resolve()) + " " + shell_quote(helper) + ' "$@"\n', encoding="utf8")

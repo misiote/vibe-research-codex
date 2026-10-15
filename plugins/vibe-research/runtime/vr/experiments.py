@@ -57,7 +57,7 @@ def ingest(store, experiment, metrics_path, config_path, log_path, repo, commit,
     resolved = git(repo, "rev-parse", "--verify", commit + "^{commit}")
     if sorted(seeds) != sorted(spec["seeds"]):
         raise ResearchError("实际 seeds 与实验规范不一致；请创建新实验规范")
-    metrics = json.loads(Path(metrics_path).read_text())
+    metrics = json.loads(Path(metrics_path).read_text(encoding="utf8"))
     if not isinstance(metrics, dict) or not metrics:
         raise ResearchError("metrics 必须是非空 JSON 对象")
     for key in spec["metrics"]:

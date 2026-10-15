@@ -40,7 +40,7 @@ def read_saved():
     if os.name != 'nt' and (p.stat().st_mode & 0o077 or p.stat().st_uid != os.getuid()):
         raise ResearchError('凭据文件应仅属于当前用户且权限为 600')
     try:
-        data = json.loads(p.read_text())
+        data = json.loads(p.read_text(encoding="utf8"))
         if not isinstance(data, dict) or any(k not in PROVIDERS or not isinstance(v,str) for k,v in data.items()):
             raise ValueError()
         return data
@@ -51,7 +51,7 @@ def keychain_refs():
     p=credential_path().with_name('keychain-providers.json')
     if not p.exists():return []
     try:
-        refs=json.loads(p.read_text())
+        refs=json.loads(p.read_text(encoding="utf8"))
         if not isinstance(refs,list) or any(p not in PROVIDERS for p in refs):raise ValueError()
         return refs
     except (OSError,ValueError):raise ResearchError('钥匙串引用配置无效')
@@ -86,7 +86,8 @@ def save(provider, value, backend="file"):
     p = credential_path(); p.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix='.credentials-', dir=p.parent)
     try:
-        os.fchmod(fd, 0o600)
+        if os.name != 'nt':
+            os.fchmod(fd, 0o600)
         with os.fdopen(fd,'w') as f:
             json.dump(data,f); f.flush(); os.fsync(f.fileno())
         os.replace(name,p)

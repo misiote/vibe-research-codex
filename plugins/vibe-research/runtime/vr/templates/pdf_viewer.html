@@ -1,0 +1,24 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__TITLE__ · 全文阅读</title><style>
+*{box-sizing:border-box}body{margin:0;background:#e8edf4;color:#182d47;font:15px system-ui}header{position:sticky;top:0;z-index:2;background:#fff;border-bottom:1px solid #d5dfeb;padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}button,input,a{font:inherit}button,a{border:1px solid #cbd6e4;background:white;color:#194b7e;border-radius:7px;padding:6px 10px;text-decoration:none}button:disabled{opacity:.45}input{width:66px;padding:5px}#name{flex:1;min-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}main{padding:18px;overflow:auto;text-align:center}canvas{display:block;margin:auto;background:white;box-shadow:0 4px 20px #13243b25;max-width:100%;height:auto}#status{margin:16px}details{max-width:1000px;margin:18px auto;background:white;padding:12px;text-align:left}#text{white-space:pre-wrap;line-height:1.7}#password-box[hidden]{display:none}
+</style><header><strong id="name">__TITLE__</strong><button id="previous" disabled>上一页</button><label>页码 <input id="page" type="number" min="1" value="1" aria-label="页码"></label><span id="count">/ …</span><button id="next" disabled>下一页</button><button id="zoom-out" aria-label="缩小">−</button><button id="zoom-in" aria-label="放大">＋</button><a id="download" href="__FILE__" target="_blank" rel="noopener">打开原 PDF</a></header>
+<div id="status" role="status">正在读取全文…</div><form id="password-box" hidden><label>此 PDF 需要密码 <input id="password" type="password" autocomplete="off"></label><button>解锁</button></form><main><canvas id="pdf-page" role="img" aria-label="PDF 页面"></canvas><details><summary>本页可检索文本</summary><div id="text"></div></details></main>
+<script type="module">
+import {getDocument,GlobalWorkerOptions} from '/static/pdfjs/pdf.mjs';
+GlobalWorkerOptions.workerSrc='/static/pdfjs/pdf.worker.mjs';
+const $=id=>document.getElementById(id),canvas=$('pdf-page');
+let pdf,current=Number(new URLSearchParams(location.hash.slice(1)).get('page'))||1,zoom=1,pending=false,again=false;
+async function render(){
+ if(!pdf)return;if(pending){again=true;return}pending=true;
+ try{const page=await pdf.getPage(current),base=page.getViewport({scale:1}),width=Math.max(250,document.documentElement.clientWidth-40),scale=Math.min(1.8,width/base.width)*zoom,viewport=page.getViewport({scale}),ratio=Math.min(devicePixelRatio||1,2);
+ canvas.width=Math.floor(viewport.width*ratio);canvas.height=Math.floor(viewport.height*ratio);canvas.style.width=viewport.width+'px';canvas.style.height=viewport.height+'px';canvas.setAttribute('aria-label',`PDF 第 ${current} 页，共 ${pdf.numPages} 页`);
+ await page.render({canvasContext:canvas.getContext('2d'),viewport,transform:ratio===1?null:[ratio,0,0,ratio,0,0]}).promise;
+ const text=await page.getTextContent();$('text').textContent=text.items.map(x=>x.str+(x.hasEOL?'\n':' ')).join('');$('status').textContent=`第 ${current} / ${pdf.numPages} 页`;$('page').value=current;$('count').textContent='/ '+pdf.numPages;$('previous').disabled=current<=1;$('next').disabled=current>=pdf.numPages;canvas.dataset.rendered='true';
+ }catch(e){$('status').textContent='全文显示失败：'+e.message}finally{pending=false;if(again){again=false;render()}}
+}
+function go(page){if(!pdf)return;current=Math.min(pdf.numPages,Math.max(1,Number(page)||1));history.replaceState(null,'','#page='+current);render()}
+$('previous').onclick=()=>go(current-1);$('next').onclick=()=>go(current+1);$('page').onchange=()=>go($('page').value);$('zoom-out').onclick=()=>{zoom=Math.max(.5,zoom-.2);render()};$('zoom-in').onclick=()=>{zoom=Math.min(3,zoom+.2);render()};addEventListener('resize',()=>render());
+const task=getDocument({url:document.getElementById('download').getAttribute('href'),cMapUrl:'/static/pdfjs/cmaps/',cMapPacked:true,standardFontDataUrl:'/static/pdfjs/standard_fonts/',wasmUrl:'/static/pdfjs/wasm/'});
+task.onPassword=update=>{$('password-box').hidden=false;$('status').textContent='请输入 PDF 密码';$('password-box').onsubmit=e=>{e.preventDefault();update($('password').value);$('password').value='';$('password-box').hidden=true}};
+try{pdf=await task.promise;current=Math.min(pdf.numPages,Math.max(1,current));$('page').max=pdf.numPages;await render()}catch(e){$('status').textContent='全文读取失败：'+e.message}
+</script></html>
