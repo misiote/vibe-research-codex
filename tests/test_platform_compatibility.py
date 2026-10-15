@@ -33,7 +33,7 @@ class PlatformCompatibility(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='vibe-中文 空格-')
         self.addCleanup(temporary.cleanup)
-        self.root = Path(temporary.name)
+        self.root = Path(temporary.name).resolve()
 
     def project(self):
         root = self.root / '研究项目'
@@ -128,6 +128,7 @@ class PlatformCompatibility(unittest.TestCase):
                     if platform == 'win32':
                         with urllib.request.urlopen(base + '/static/pdfjs/pdf.mjs') as response:
                             self.assertEqual(response.headers.get_content_type(), 'application/javascript')
+                            self.assertTrue(response.read())
                         for route in ('/static/../../store.py', '/static/pdfjs/not-found'):
                             with self.assertRaises(urllib.error.HTTPError) as error:
                                 urllib.request.urlopen(base + route)
