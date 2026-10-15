@@ -11,15 +11,23 @@ class Deferred(ResearchError):
         super().__init__(message)
 
 def location():
-    return Path(os.environ.get('VR_RUNTIME_DIR', str(Path.home()/'.config/vibe-research'))) / 'request-budget.sqlite3'
+    if os.name=='nt':
+        default=Path(os.environ.get('APPDATA',str(Path.home()/'AppData/Roaming')))/'VibeResearch/runtime'
+    else:
+        default=Path.home()/'.config/vibe-research'
+    return Path(os.environ.get('VR_RUNTIME_DIR',str(default))) / 'request-budget.sqlite3'
 
 def scope(provider):
     key, _ = credential(provider)
     return provider + ':' + hashlib.sha256((key or 'anonymous').encode()).hexdigest()
 
 def connect():
-    p=location(); p.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
-    db=sqlite3.connect(p,timeout=30)
+    p=location()
+    try:
+        p.parent.mkdir(parents=True,exist_ok=True,mode=0o777 if os.name=='nt' else 0o700)
+        db=sqlite3.connect(p,timeout=30)
+    except (OSError,sqlite3.Error) as exc:
+        raise ResearchError('无法打开本机请求预算库；请使用同一用户运行工作台和检索，或为 VR_RUNTIME_DIR 选择该用户可写的位置。') from exc
     db.execute('CREATE TABLE IF NOT EXISTS gates(scope TEXT PRIMARY KEY, day TEXT, calls INTEGER, next REAL, cooldown REAL)')
     return db
 

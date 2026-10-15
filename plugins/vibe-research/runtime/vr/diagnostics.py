@@ -14,5 +14,5 @@ def export(root,destination):
         for task in run['tasks']:states[task['status']]=states.get(task['status'],0)+1
     data={'format':'vibe-research-diagnostics','version':1,'generated_at':now(),'python':platform.python_version(),'platform':sys.platform,'revision':revision,'integrity_ok':doctor['ok'],'integrity_error_count':len(doctor.get('errors',[])),'retrieval':{'worker_alive':queue['worker_alive'],'recent_task_states':states},'credentials':[{'provider':p['provider'],'configured':p['configured'],'storage':p['source']} for p in connections.status()['providers']],'note':'不含原始错误、项目标题、查询、文件路径、响应正文、IP、代理地址或凭据；需用户明确分享才发送。'}
     path=Path(destination)
-    with open(path,'x') as f:json.dump(data,f,ensure_ascii=False,indent=2)
+    with open(path,'x',encoding='utf8') as f:json.dump(data,f,ensure_ascii=False,indent=2)
     return {'diagnostics':str(path.resolve()),'note':data['note']}

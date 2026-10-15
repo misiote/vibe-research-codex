@@ -12,7 +12,7 @@ from . import activity, retrieval
 def entries(registry):
     registry=Path(registry).resolve()
     if not registry.exists(): return []
-    data=json.loads(registry.read_text())
+    data=json.loads(registry.read_text(encoding="utf8"))
     rows=data['projects']
     if len({r['id'] for r in rows})!=len(rows): raise ResearchError('项目编号重复')
     return [{**r,'uuid':r.get('uuid',str(uuid.uuid5(uuid.NAMESPACE_URL,'vibe-research:'+r['id']))),'lifecycle':r.get('lifecycle','active'),'root':str((registry.parent/r['path']).resolve())} for r in rows]
@@ -95,7 +95,7 @@ def relocate(registry,ident,path):
         row=next((r for r in rows if r['id']==ident),None)
         if row is None:raise ResearchError('项目未登记')
         if any(r['id']!=ident and r['root']==str(root) for r in rows):raise ResearchError('目标目录已属于其他项目')
-        try:identity=json.loads((root/'.research/project-identity.json').read_text())
+        try:identity=json.loads((root/'.research/project-identity.json').read_text(encoding="utf8"))
         except (OSError,ValueError):raise ResearchError('目标缺少项目身份文件；迁移前请先登记原项目')
         if identity.get('uuid')!=row['uuid']:raise ResearchError('目标目录不是此项目的迁移副本')
         store=Store(root)
@@ -118,7 +118,7 @@ def create(registry,name,question,providers,request_id):
         fcntl.flock(lock,fcntl.LOCK_EX)
         signature={'name':name,'question':question,'providers':providers}
         intent=root/'creation-request.json'
-        if intent.exists() and json.loads(intent.read_text())!=signature:raise ResearchError('同一创建请求不能改变项目内容，请重新开始向导')
+        if intent.exists() and json.loads(intent.read_text(encoding="utf8"))!=signature:raise ResearchError('同一创建请求不能改变项目内容，请重新开始向导')
         root.mkdir(parents=True,exist_ok=True)
         atomic(intent,json.dumps(signature,ensure_ascii=False))
         if not (root/'.research/research.db').exists():

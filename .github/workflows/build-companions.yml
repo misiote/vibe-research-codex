@@ -6,6 +6,11 @@ on:
     paths:
       - "plugins/vibe-research/scripts/companion/**"
       - "plugins/vibe-research/scripts/companion.py"
+      - "plugins/vibe-research/runtime/**"
+      - "plugins/vibe-research/scripts/install_cli.py"
+      - "tests/test_platform_compatibility.py"
+      - "install.ps1"
+      - ".gitattributes"
       - ".github/workflows/build-companions.yml"
   push:
     branches: [main]
@@ -42,11 +47,28 @@ jobs:
                       text = path.read_text(encoding="utf-8")
                   except (UnicodeDecodeError, OSError):
                       continue
-                  if re.search(r"/(?:Users|home)/[^/]+/", text) or re.search(r"[A-Z]:\\\\Users\\\\[^\\\\]+", text):
+                  if re.search(r'''/(?:Users|home)/[^/\s"'\\]+/''', text) or re.search(r"[A-Z]:\\\\Users\\\\[^\\\\]+", text):
                       bad.append(str(relative) + " (local path)")
           if bad:
               raise SystemExit("Public tree contains private or generated files:\n" + "\n".join(sorted(set(bad))))
           PY
+
+  runtime-check:
+    needs: release-audit
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            python: python3
+          - os: macos-14
+            python: python3
+          - os: windows-2025
+            python: python
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Check platform compatibility without network or credentials
+        run: ${{ matrix.python }} -X utf8 -m unittest discover -s tests -p test_platform_compatibility.py -v
 
   macos-check:
     needs: release-audit
@@ -97,7 +119,7 @@ jobs:
 
   package:
     runs-on: ubuntu-24.04
-    needs: [macos-check, linux-check, windows-build]
+    needs: [runtime-check, macos-check, linux-check, windows-build]
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/download-artifact@v8.0.2

@@ -1,0 +1,4 @@
+# Plugin checksums describe the same source bytes on Windows, macOS, and Linux.
+plugins/vibe-research/** text=auto eol=lf
+# Preserve the original bytes of vendored code, licenses, fonts, and codecs.
+plugins/vibe-research/runtime/vr/static/pdfjs/** -text

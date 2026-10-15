@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 $ShareRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $CodexCommand = Get-Command codex -ErrorAction SilentlyContinue
@@ -11,14 +11,26 @@ if (-not $CodexExe) {
     throw "没有找到 Codex CLI。请先安装 Codex，并重新打开 PowerShell。"
 }
 
-$PythonCommand = Get-Command python -ErrorAction SilentlyContinue
-$PythonExe = if ($PythonCommand) { $PythonCommand.Source } else { $null }
+$PythonExe = $null
 $PythonArgs = @()
+$PythonCandidates = @()
+if ($env:VIBE_RESEARCH_PYTHON) { $PythonCandidates += $env:VIBE_RESEARCH_PYTHON }
+$PythonCommand = Get-Command python -ErrorAction SilentlyContinue
+if ($PythonCommand) { $PythonCandidates += $PythonCommand.Source }
+$PythonCandidates += Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+foreach ($Candidate in $PythonCandidates) {
+    if (-not (Test-Path -LiteralPath $Candidate)) { continue }
+    & $Candidate -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 2)" 2>$null
+    if ($LASTEXITCODE -eq 0) { $PythonExe = $Candidate; break }
+}
 if (-not $PythonExe) {
     $PyCommand = Get-Command py -ErrorAction SilentlyContinue
     if ($PyCommand) {
-        $PythonExe = $PyCommand.Source
-        $PythonArgs = @("-3")
+        & $PyCommand.Source -3 -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 2)" 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $PythonExe = $PyCommand.Source
+            $PythonArgs = @("-3")
+        }
     }
 }
 if (-not $PythonExe) {
@@ -27,6 +39,8 @@ if (-not $PythonExe) {
 
 & $PythonExe @PythonArgs -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 9) else 2)"
 if ($LASTEXITCODE -ne 0) { throw "需要 Python 3.9 或更高版本。" }
+$PythonArgs += @("-X", "utf8")
+if (-not $env:CODEX_HOME) { $env:CODEX_HOME = Join-Path $env:USERPROFILE ".codex" }
 
 & $CodexExe plugin marketplace add $ShareRoot
 if ($LASTEXITCODE -ne 0) { throw "添加 Vibe Research marketplace 失败。" }

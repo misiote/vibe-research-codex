@@ -2,6 +2,7 @@
 import hashlib
 import html
 import re
+import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 from . import reading
@@ -41,7 +42,7 @@ def links(store, node):
         out.append({'label':'精读结果 · '+paper['title'].split(':')[0], 'url':'/reading/'+paper['id'],'kind':'reading'})
     for a in files(store,node):
         suffix=Path(a['path']).suffix.lower()
-        url='/file/'+a['sha256']
+        url=('/pdf/' if suffix=='.pdf' and sys.platform=='win32' else '/file/')+a['sha256']
         if suffix=='.pdf' and node['kind']=='V': url+='#page='+str(node['data'].get('page',1))
         out.append({'label':('原文 · ' if suffix=='.pdf' else '附件 · ')+a.get('name','归档文件'),'url':url,'kind':'file','sha256':a['sha256']})
     for ident in node['data'].get('paper_ids',[]):
@@ -147,4 +148,4 @@ def skill_page(name):
     if name not in SKILLS: raise ResearchError('技能不存在')
     path=Path(__file__).resolve().parents[1]/'skills'/name/'SKILL.md'
     if not path.is_file(): raise ResearchError('本安装未包含技能说明')
-    return page(SKILLS[name],'<p class="meta">当前分发包中的技能说明。用于辅助助手工作；不代表研究结论已验证。</p><article><pre>'+html.escape(path.read_text())+'</pre></article>')
+    return page(SKILLS[name],'<p class="meta">当前分发包中的技能说明。用于辅助助手工作；不代表研究结论已验证。</p><article><pre>'+html.escape(path.read_text(encoding="utf8"))+'</pre></article>')

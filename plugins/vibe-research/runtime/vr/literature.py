@@ -290,7 +290,9 @@ def search_page(router, query, provider, cursor=None, size=25):
         if nxt and (not papers or int(nxt)>=30000):
             boundary='arXiv 返回空页或达到检索窗口；需要按时间拆分查询';nxt=None
     elif provider=='crossref':
-        body,info=router.request(provider,'https://api.crossref.org/works',{'query':query,'rows':size,'cursor':cursor or '*'})
+        params={'query':query,'rows':size,'cursor':cursor or '*'}
+        if os.name=='nt':params.update(sort='score',order='desc')
+        body,info=router.request(provider,'https://api.crossref.org/works',params)
         data=json.loads(body)['message'];raw=data['items'];total=int(data['total-results']);papers=[]
         for x in raw:
             parts=(x.get('issued') or {}).get('date-parts') or [[None]]

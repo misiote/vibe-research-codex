@@ -12,7 +12,7 @@ from .community.validator import CitationValidator
 
 
 def capabilities():
-    meta=json.loads((Path(__file__).parent/'community/provenance.json').read_text())
+    meta=json.loads((Path(__file__).parent/'community/provenance.json').read_text(encoding="utf8"))
     base=meta['html_url']+'/tree/'+meta['commit']+'/skills/'
     return [
         {'title':'发现与检索','status':'已接入 · 免费来源','description':'保留查询词、筛选条件、时间、来源与失败记录；按论文标识去重，形成可追溯的检索节点。','note':'通过 vr scout 执行；候选文献需要继续筛选。','links':[{'label':'社区检索方法','url':base+'citation-management'}]},
@@ -43,7 +43,7 @@ def archive_scout(store, record):
             ident=import_paper(store,p)
             if ident not in ids:ids.append(ident)
     with tempfile.TemporaryDirectory() as tmp:
-        path=Path(tmp)/'search-record.json';path.write_text(dumps(record))
+        path=Path(tmp)/'search-record.json';path.write_text(dumps(record),encoding='utf8')
         artifact=store.artifact(path)
     node=store.add_node('A','文献检索 · '+', '.join(record['queries']),{'source_type':'literature_search','paper_ids':ids,'artifacts':[artifact],'scope':record['include'],'search_status':'candidates' if ids else 'no_results'})
     for ident in ids:store.add_edge(node,'derived_from',ident)
@@ -71,7 +71,7 @@ def bibliography(store):
     with contextlib.redirect_stderr(io.StringIO()):
         report=CitationValidator().validate_file(str(path),check_dois=False)
     report['scope']='离线字段/年份/重复项检查；未进行在线 DOI 或引用语义核验。'
-    report['source_commit']=json.loads((Path(__file__).parent/'community/provenance.json').read_text())['commit']
+    report['source_commit']=json.loads((Path(__file__).parent/'community/provenance.json').read_text(encoding="utf8"))['commit']
     atomic(store.root/'research/BibliographyCheck.json',dumps(report))
     return {'bibtex':str(path),'report':str(store.root/'research/BibliographyCheck.json'),'entries':len(entries),'errors':len(report['errors']),'warnings':len(report['warnings']),'scope':report['scope']}
 

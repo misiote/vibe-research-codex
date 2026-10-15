@@ -9,7 +9,7 @@ description: 在 Codex 中开始、继续和管理 Vibe Research 研究项目，
 
 ## 一个入口
 
-用户第一次开始研究时，优先使用已明确选定的研究工作区；若当前目录已有 `outputs/projects.json`，它的父目录就是现有工作区，否则在用户当前工作目录的 `vibe-research-workspace` 建立独立工作区。若当前目录就是插件缓存或无法判断研究目录，询问一次目标文件夹。
+用户第一次开始研究时，优先使用已明确选定的研究工作区。Windows 上读取 `%APPDATA%/VibeResearch/launcher.json` 中已安装入口的 workspace，避免每次聊天另建工作区。没有安装设置时，若当前目录已有 `outputs/projects.json`，它的父目录就是现有工作区，否则在用户当前工作目录的 `vibe-research-workspace` 建立独立工作区。若当前目录就是插件缓存或无法判断研究目录，询问一次目标文件夹。
 
 先解析 Python 3.9+ 解释器：macOS/Linux 优先 `python3`，Windows 优先 `py -3`，也可使用可确认版本的 `python`。在有图形桌面的 Codex 项目对话中，优先运行 `<Python> <插件根>/scripts/companion.py --workspace <工作区>`：统一启动器会选择 macOS AppKit、Windows WebView2 或 Linux GTK/WebKitGTK 实现，启动或复用工作台，只确保悬浮“研究伴侣”存在，默认保持收起；不要同时主动打开工作台面板。用户点击伴侣才显示或收起独立的研究现场窗口，拖动伴侣可调整入口位置。研究现场不从 Codex 窗口复制坐标或宽度。每次开始或继续 Vibe Research 项目对话都执行一次，返回 `started: false` 代表已在运行，不重复创建。
 
@@ -20,6 +20,10 @@ description: 在 Codex 中开始、继续和管理 Vibe Research 研究项目，
 用 `vr hub list --registry <工作区>/projects.json` 选择项目。研究库和工作进程使用本插件 bundled continuity skill 中的规则；同一未完成目标延续原编号，不因为新聊天或跨天重开。所有图状态修改通过 `vr --project <目录>` CLI，不能直接改数据库或 JSON。
 
 ## 来源与完整性
+
+Windows 伴侣必须显示到用户当前桌面。Codex 的常规命令可能位于 `CodexSandboxDesktop`；启动器会拒绝在其中创建不可见窗口。遇到此提示时，用宿主获准的非沙箱命令在实际桌面启动，或让用户双击已安装的 `vr-companion.cmd`。不得通过切换桌面或更改安全设置绕过限制。用 `--status` 确认 `visible_to_user: true`，不能仅凭 `running: true` 宣称用户已看到入口。`--show`、`--hide`、`--reset-position` 支持明确控制并等待完成回执。不要把账户/目录权限错误当成来源网络失败。
+
+Windows 的 `py -3` 或 `python` 不可用时，可读取安装器的 `VIBE_RESEARCH_PYTHON` 设置，或检查 `%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe`。先确认版本再使用绝对路径，并追加 `-X utf8`。
 
 首次检索或上次受阻时检查 integrations 状态并按需联网复测。新项目向导会对所选来源做真实只读预检并检查 PDF 精读环境。公开来源优先；每数据库每月 50 元上限不是采购授权。缺少个人 key 时引导用户在工作台来源卡片中保存，命令行 setup 仅作备用；不得让用户在聊天粘贴凭据。macOS 默认钥匙串。WoS/Scopus 的 key、机构 entitlement 和执行主机网络分别核验；Unpaywall 仅随 DOI 候选做开放全文定位。机构 SSO 由用户在官方页面完成，浏览器登录不代表脚本有 API 权限。
 

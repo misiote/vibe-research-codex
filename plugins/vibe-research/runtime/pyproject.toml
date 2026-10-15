@@ -19,4 +19,4 @@ vr = "vr.cli:main"
 include = ["vr*"]
 
 [tool.setuptools.package-data]
-vr = ["templates/*.html", "templates/*.js", "community/*.json", "community/*.md"]
+vr = ["templates/*.html", "templates/*.js", "community/*.json", "community/*.md", "static/pdfjs/*", "static/pdfjs/cmaps/*", "static/pdfjs/standard_fonts/*", "static/pdfjs/wasm/*"]

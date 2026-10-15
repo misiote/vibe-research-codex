@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import sqlite3
 import time
 import urllib.error
 import urllib.request
@@ -80,6 +81,8 @@ def preflight(providers):
                     rows.append({'provider':provider,'status':status,'message':str(exc),'diagnostic':exc.diagnostic})
                 except ResearchError as exc:
                     rows.append({'provider':provider,'status':'blocked','message':str(exc)})
+                except (OSError,sqlite3.Error) as exc:
+                    rows.append({'provider':provider,'status':'blocked','message':'本机预检环境不可用：'+type(exc).__name__+'；请检查运行账户及数据目录权限。'})
         finally:store.db.close()
     from .connections import status
     return {'checked_at':now(),'providers':rows,'connections':status(),'runtime':runtime_status(),
@@ -100,7 +103,7 @@ def check(store, network=False):
     canvas = store.root / 'research/research.canvas'
     paths = app_locations('Obsidian')
     try:
-        graph = json.loads(canvas.read_text())
+        graph = json.loads(canvas.read_text(encoding="utf8"))
         valid = all((store.root / 'research' / n['file']).is_file() for n in graph['nodes'] if n['type'] == 'file')
     except (OSError, KeyError, ValueError):
         valid = False
@@ -156,7 +159,7 @@ def check(store, network=False):
             rows.append(item(provider, 'unverified', 'not_probed', '本次未请求 API；已有书目不能证明连接可用', '运行 vr integrations check --network'))
     evidence_path = store.root / 'research/integration-evidence.json'
     if evidence_path.exists():
-        records = json.loads(evidence_path.read_text())
+        records = json.loads(evidence_path.read_text(encoding="utf8"))
         for r in records:
             rows.append(dict(r, evidence_kind='operator_recorded', scope='由操作者记录的外部宿主检查；非 vr 内置自动探测'))
     result = {'generated_at': now(), 'network_requested': network, 'revision': store.revision(), 'items': rows,
@@ -174,7 +177,7 @@ def record(store, name, status, level, evidence, next_step):
     with open(store.home / 'lock', 'a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         path = store.root / 'research/integration-evidence.json'
-        rows = json.loads(path.read_text()) if path.exists() else []
+        rows = json.loads(path.read_text(encoding="utf8")) if path.exists() else []
         current = item(name, status, level, evidence, next_step, actor=os.environ.get('VR_ACTOR', 'local'))
         rows = [r for r in rows if r['name'] != name] + [current]
         atomic(path, dumps(rows))

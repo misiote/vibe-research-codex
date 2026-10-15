@@ -45,7 +45,7 @@ def create(root,destination):
             for source in artifacts.iterdir():
                 if source.is_symlink() or not source.is_file():raise ResearchError('附件包含非普通文件，需核查')
                 shutil.copyfile(source,home/'artifacts'/source.name)
-        files={str(p.relative_to(stage)):hashlib.sha256(p.read_bytes()).hexdigest() for p in home.rglob('*') if p.is_file() and allowed(str(p.relative_to(stage)))}
+        files={p.relative_to(stage).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in home.rglob('*') if p.is_file() and allowed(p.relative_to(stage).as_posix())}
         manifest={'format':'vibe-research-bundle','version':1,'created_at':now(),'files':files,'scope':'研究数据库、工作历史、待补检索、已登记附件与身份；不包含外部代码、用户凭据或 Codex 任务'}
         bundle=stage/'bundle.zip'
         with zipfile.ZipFile(bundle,'w',compression=zipfile.ZIP_DEFLATED) as archive:

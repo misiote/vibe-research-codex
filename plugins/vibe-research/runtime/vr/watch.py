@@ -5,6 +5,7 @@ import subprocess
 import sys
 import re
 import mimetypes
+import html
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
@@ -18,7 +19,7 @@ def connection_view(store):
     data = status()
     path = store.root / 'research/integrations.json'
     try:
-        saved = json.loads(path.read_text())
+        saved = json.loads(path.read_text(encoding="utf8"))
         data['checked_at'] = saved.get('generated_at')
         data['checks'] = [r for r in saved.get('items',[]) if r.get('name') in {'SQLite / 研究图','PDF 精读','openalex','s2','arxiv','crossref','core','huggingface','wos','scopus','unpaywall','Zotero'}]
     except (OSError,ValueError):
@@ -58,10 +59,20 @@ def server(root, port, registry=None):
             self.project_prefix = ''
             selected_root = root
             try:
+                if sys.platform=='win32' and route.startswith('/static/'):
+                    directory=Path(__file__).parent/'static'
+                    asset=(directory/route[len('/static/'):]).resolve()
+                    if not asset.is_relative_to(directory.resolve()) or not asset.is_file():
+                        return self.reply(404,'text/plain',b'Not found')
+                    kind={'.mjs':'application/javascript','.wasm':'application/wasm'}.get(asset.suffix,mimetypes.guess_type(str(asset))[0] or 'application/octet-stream')
+                    return self.reply(200,kind,asset.read_bytes())
                 if registry:
                     from . import hub
                     if route == '/':
-                        return self.reply(200,'text/html',(Path(__file__).parent/'templates/hub.html').read_bytes())
+                        body=(Path(__file__).parent/'templates/hub.html').read_bytes()
+                        if sys.platform=='win32':
+                            body=body.replace(b"box.checked=['arxiv','crossref','core']",b"box.checked=['arxiv','crossref','openalex']")
+                        return self.reply(200,'text/html',body)
                     if route == '/api/workspace':
                         return self.reply(200,'application/json',json.dumps({'registry':str(Path(registry).resolve()),'version':'0.2.0'}).encode())
                     if route == '/api/session':
@@ -102,6 +113,15 @@ def server(root, port, registry=None):
                     finally:
                         s.db.close()
                     return self.reply(200, 'text/html', body.encode())
+                if sys.platform=='win32' and re.fullmatch(r'/pdf/[a-f0-9]{64}',route):
+                    s=Store(selected_root)
+                    try:
+                        path,name=resources.registered_file(s,route.split('/')[-1])
+                        if path.suffix.lower()!='.pdf':raise ResearchError('不是 PDF 文件')
+                    finally:s.db.close()
+                    template=(Path(__file__).parent/'templates/pdf_viewer.html').read_text(encoding='utf8')
+                    body=template.replace('__TITLE__',html.escape(name)).replace('__FILE__','/file/'+route.split('/')[-1])
+                    return self.reply(200,'text/html',body.encode())
                 if re.fullmatch(r'/file/[a-f0-9]{64}', route):
                     s = Store(selected_root)
                     try:
@@ -185,7 +205,7 @@ def server(root, port, registry=None):
                     if set(data)!={'action','id','reason'} or not isinstance(data['id'],str) or not re.fullmatch(r'p[a-f0-9]{12}',data['id']) or not isinstance(data['reason'],str) or not 0<len(data['reason'])<=2000:raise ResearchError('项目操作格式无效')
                     args += [action,data['id'],'--registry',str(registry),'--reason',data['reason']]
                 else:raise ResearchError('此操作尚未开放')
-                result=subprocess.run(args,capture_output=True,text=True,timeout=30)
+                result=subprocess.run(args,capture_output=True,text=True,encoding='utf8',timeout=30)
                 if result.returncode:
                     raise ResearchError(result.stderr.strip()[:500] or '操作未完成')
                 return self.reply(200,'application/json',result.stdout.encode())
@@ -199,23 +219,26 @@ def server(root, port, registry=None):
                     def scoped(value):
                         if isinstance(value,dict): return {k:scoped(v) for k,v in value.items()}
                         if isinstance(value,list): return [scoped(v) for v in value]
-                        if isinstance(value,str) and re.match(r'^/(node|reading|file|graph|settings)(/|\?|$)',value): return prefix+value
+                        if isinstance(value,str) and re.match(r'^/(node|reading|file|pdf|graph|settings)(/|\?|$)',value): return prefix+value
                         return value
                     content=json.dumps(scoped(json.loads(content)),ensure_ascii=False).encode()
                 else:
                     text=content.decode()
-                    text=re.sub(r"([\"'])/(api/state|graph|node/|reading/|file/|settings/)",lambda m:m[1]+prefix+'/'+m[2],text)
+                    text=re.sub(r"([\"'])/(api/state|graph|node/|reading/|file/|pdf/|settings/)",lambda m:m[1]+prefix+'/'+m[2],text)
                     text=text.replace('href="/"','href="'+prefix+'/"')
                     if '<body>' in text and '<div class="app">' in text:
                         text=text.replace('<body>','<body><nav class="workspace-back"><a href="/">← 项目</a></nav>',1)
                     content=text.encode()
             self.send_response(code)
-            self.send_header('Content-Type', kind + '; charset=utf-8')
+            self.send_header('Content-Type', kind + ('; charset=utf-8' if kind.startswith('text/') or kind in ('application/json','application/javascript') else ''))
             self.send_header('Content-Length', str(len(content)))
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Referrer-Policy', 'no-referrer')
-            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'")
+            policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self' blob:; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'"
+            if sys.platform != 'win32':
+                policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'"
+            self.send_header('Content-Security-Policy', policy)
             self.end_headers()
             self.wfile.write(content)
     return ThreadingHTTPServer(('127.0.0.1', port), Handler)
