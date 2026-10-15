@@ -1,4 +1,4 @@
-# Vibe Research 0.4.1
+# Vibe Research 0.5.0
 
 在 Codex 安装本插件后，新聊天说“打开 Vibe Research 工作台”即可由 skill 识别。研究数据存放在用户选择的工作区，与插件缓存分开；升级或卸载插件不删除研究库。
 
@@ -32,6 +32,8 @@ Python 3.9 或以上，无额外依赖即可运行工作台、图和元数据检
 `python3 runtime/bin/vr --project <项目> integrations setup --provider openalex` 使用终端不回显输入；Windows 可将 `python3` 换为 `py -3`。macOS 默认系统钥匙串；Linux 和 Windows 优先使用环境变量，也可明确选择本机凭据文件。该文件不进入研究备份，但 Windows 的 `chmod 600` 不等同于 ACL 隔离，应依赖用户目录权限并避免共享账户。钥匙串失败不会自动降级为明文。已有明文不会自动迁移或删除。
 
 ## 机构数据库
+
+数据库向导支持机构网页入口、校园 VPN 和 API Institutional Token 的分层配置。Scopus 请求会绕过应用层全局代理并使用系统网络路由，避免全局代理遮蔽校园 VPN；机构账号和验证码始终留在官方页面。
 
 设置页提供 WoS、Scopus、Unpaywall 和校园资源的本机配置与按需引导。WoS、Scopus 已进入持久分页检索；Unpaywall 会在候选出现 DOI 后加入开放全文定位任务。未拿到本人 key 或机构权益前保留为待配置，不宣称授权通过。登录、验证码和权限申请由本人在官方页面完成。每库每月 50 元只是预算约束，插件不采购或续费。
 

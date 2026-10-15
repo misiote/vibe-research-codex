@@ -85,7 +85,8 @@ def preflight(providers):
                     rows.append({'provider':provider,'status':'blocked','message':'本机预检环境不可用：'+type(exc).__name__+'；请检查运行账户及数据目录权限。'})
         finally:store.db.close()
     from .connections import status
-    return {'checked_at':now(),'providers':rows,'connections':status(),'runtime':runtime_status(),
+    from . import network_access
+    return {'checked_at':now(),'providers':rows,'connections':status(),'network_access':network_access.status(),'runtime':runtime_status(),
             'note':'这是用户触发的新手预检；执行真实只读查询，不导入文献，也不代表全文权限。'}
 
 

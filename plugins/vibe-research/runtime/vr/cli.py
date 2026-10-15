@@ -114,9 +114,11 @@ def parser():
     command("add", [arg("path"), arg("--title", required=True), arg("--source"), arg("--branch")], artifact)
     integrations = group("integrations")
     command("check", [arg("--network", action="store_true")], integrations)
-    command("setup", [arg("--provider", choices=("openalex","s2","wos","scopus","unpaywall")),arg("--backend",choices=("keychain","file"))], integrations)
+    command("setup", [arg("--provider", choices=("openalex","s2","wos","scopus","scopus_insttoken","unpaywall")),arg("--backend",choices=("keychain","file"))], integrations)
     command("verify",[arg("provider",choices=("wos","scopus","unpaywall")),arg("--query",required=True)],integrations)
     command("context",[arg("provider",choices=("wos","scopus","unpaywall","campus")),arg("--network",required=True,choices=("campus","off_campus","unknown"))],integrations)
+    command("route",[arg("provider",choices=("scopus","wos")),arg("--institution",required=True,choices=("casia","custom","none")),arg("--name",default=""),arg("--portal-url",default=""),arg("--method",required=True,choices=("auto","campus_vpn","browser_portal","institutional_token","public_only")),arg("--network",default="unknown",choices=("campus","off_campus","unknown"))],integrations)
+    command("network",parent=integrations)
     command("diagnostics",[arg("path")],integrations)
     command("status", parent=integrations)
     command("record", [arg("name"), arg("--status", required=True, choices=("passed", "partial", "blocked", "unverified")), arg("--level", required=True), arg("--evidence", required=True), arg("--next-step", required=True)], integrations)
@@ -232,6 +234,9 @@ def run(a):
         if a.op in ("verify","context"):
             from . import access
             return access.verify(root,a.provider,a.query) if a.op=="verify" else access.context(root,a.provider,a.network)
+        if a.op in ("route","network"):
+            from . import network_access
+            return network_access.status() if a.op=="network" else network_access.configure(a.provider,a.institution,a.name,a.portal_url,a.method,a.network)
         if a.op == "setup": return connections.setup(a.provider,a.backend)
         if a.op == "status": return connections.status()
         if a.op == "check":

@@ -10,13 +10,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
 from .store import Store, ResearchError
-from . import activity, progress, graph, resources, retrieval, access, connections, integrations, runtime_env
+from . import activity, progress, graph, resources, retrieval, access, connections, integrations, runtime_env, network_access
 from .workflows import capabilities
 
 
 def connection_view(store):
     from .connections import status
     data = status()
+    data['network_access'] = network_access.status()
     path = store.root / 'research/integrations.json'
     try:
         saved = json.loads(path.read_text(encoding="utf8"))
@@ -155,7 +156,7 @@ def server(root, port, registry=None):
                 return self.reply(403,'application/json',b'{"error":"Request origin or session rejected"}')
             access_route=re.fullmatch(r'/p/(p[a-f0-9]{12})/api/access',self.path)
             retrieval_route=re.fullmatch(r'/p/(p[a-f0-9]{12})/api/retrieval',self.path)
-            global_route=self.path in ('/api/manage','/api/preflight','/api/configure','/api/runtime')
+            global_route=self.path in ('/api/manage','/api/preflight','/api/configure','/api/runtime','/api/network-profile')
             if not registry or (not global_route and not retrieval_route and not access_route) or self.headers.get('Content-Type')!='application/json':
                 return self.reply(404,'application/json',b'{"error":"Unsupported operation"}')
             try:
@@ -171,6 +172,11 @@ def server(root, port, registry=None):
                     if set(data)!={'provider','value'} or data.get('provider') not in connections.PROVIDERS or not isinstance(data.get('value'),str) or not 0<len(data['value'])<=4096:raise ResearchError('凭据格式无效')
                     connections.save(data['provider'],data['value'],connections.default_backend())
                     return self.reply(200,'application/json',json.dumps({'saved':True,'backend':connections.backend_info(),'note':'已安全保存到本机；请重新运行实际连接预检。'},ensure_ascii=False).encode())
+                if self.path=='/api/network-profile':
+                    fields={'action','provider','institution_id','institution_name','portal_url','method','declared_network'}
+                    if set(data)!=fields or data.get('action')!='configure' or not all(isinstance(data.get(k),str) for k in fields):raise ResearchError('机构网络配置格式无效')
+                    result=network_access.configure(data['provider'],data['institution_id'],data['institution_name'],data['portal_url'],data['method'],data['declared_network'])
+                    return self.reply(200,'application/json',json.dumps(result,ensure_ascii=False).encode())
                 if self.path=='/api/runtime':
                     if data!={'action':'prepare_pdf'}:raise ResearchError('运行时操作无效')
                     return self.reply(200,'application/json',json.dumps(runtime_env.prepare(),ensure_ascii=False).encode())

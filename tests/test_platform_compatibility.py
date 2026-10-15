@@ -18,7 +18,7 @@ import zipfile
 
 PLUGIN = Path(__file__).resolve().parents[1] / 'plugins/vibe-research'
 sys.path.insert(0, str(PLUGIN / 'runtime'))
-from vr import backup, connections, hub, literature, request_gate, resources, watch
+from vr import backup, connections, hub, literature, network_access, request_gate, resources, watch
 from vr.store import ResearchError, Store
 
 
@@ -73,6 +73,24 @@ class PlatformCompatibility(unittest.TestCase):
             self.assertEqual(connections.read_saved(), {'s2': 'test-only-dummy-value'})
         if os.name != 'nt':
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_scopus_institution_profile_and_split_routing(self):
+        profile = self.root / 'network-profiles.json'
+        with patch.object(network_access, 'profile_path', return_value=profile), patch.object(network_access, '_interfaces', return_value=['ethernet', 'wintun0']), patch.object(network_access, '_system_proxy_present', return_value=False), patch.dict(os.environ, {'HTTPS_PROXY': 'http://proxy.invalid'}, clear=True):
+            configured = network_access.configure('scopus', 'casia', '', '', 'auto')
+            public = network_access.decision('s2', 'https://api.semanticscholar.org/graph/v1/paper/search')
+        self.assertEqual(configured['route']['portal_url'], 'https://webvpn.ia.ac.cn/')
+        self.assertEqual(configured['decision']['route'], 'direct')
+        self.assertTrue(configured['decision']['application_proxy_bypassed'])
+        self.assertEqual(public['route'], 'environment')
+
+    def test_scopus_institutional_token_stays_in_private_store(self):
+        path = self.root / 'credentials.json'
+        with patch.object(connections, 'credential_path', return_value=path), patch.dict(os.environ, {}, clear=True):
+            connections.save('scopus_insttoken', 'dummy-institution-token', backend='file')
+            self.assertEqual(connections.credential('scopus_insttoken'), ('dummy-institution-token', 'saved'))
+            status = json.dumps(connections.status())
+        self.assertNotIn('dummy-institution-token', status)
 
     def test_budget_default_preserves_posix_location(self):
         fake_os = SimpleNamespace(name='posix', environ={})

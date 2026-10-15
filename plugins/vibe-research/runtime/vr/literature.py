@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from .connections import credential
 from .store import ResearchError, dumps, now
+from . import network_access
 
 PROVIDERS = ("openalex", "s2", "arxiv", "crossref", "core", "huggingface", "wos", "scopus")
 RESOLVERS = ("unpaywall",)
@@ -111,7 +112,12 @@ class Router:
 
     def request(self, provider, endpoint, params):
         params = dict(params)
-        key = hashlib.sha256(dumps([provider, endpoint, params]).encode()).hexdigest()
+        institutional_credential = credential("scopus_insttoken") if provider == "scopus" else (None, "not_required")
+        institutional_token = institutional_credential[0]
+        cache_identity = [provider, endpoint, params]
+        if provider == "scopus":
+            cache_identity += [network_access.route(provider).get("method", "auto"), bool(institutional_token)]
+        key = hashlib.sha256(dumps(cache_identity).encode()).hexdigest()
         row = self.store.db.execute("SELECT body,created FROM cache WHERE key=?", (key,)).fetchone()
         if row and (self.offline or (not self.fresh and time.time() - row[1] < 86400)):
             return row[0], {"cached": True, "cached_at": row[1]}
@@ -131,14 +137,18 @@ class Router:
             headers["X-ApiKey"] = token
         if provider == "scopus":
             headers["X-ELS-APIKey"] = token
+            insttoken, insttoken_source = institutional_credential
+            if insttoken:
+                headers["X-ELS-Insttoken"] = insttoken
         if provider == "unpaywall":
             params["email"] = token
         url = endpoint + "?" + urllib.parse.urlencode(params)
+        routing = network_access.decision(provider, url)
         for attempt in range(1 if self.defer else 3):
             self.reserve(provider)
             try:
                 req = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(req, timeout=20) as response:
+                with network_access.open_request(req, provider, timeout=20) as response:
                     body = response.read(10_000_001)
                     response_info = diagnostic(response.status, response.headers)
                 if len(body) > 10_000_000:
@@ -148,7 +158,12 @@ class Router:
                 ET.fromstring(body) if provider == "arxiv" else json.loads(body)
                 with self.store.db:
                     self.store.db.execute("INSERT OR REPLACE INTO cache VALUES(?,?,?,?)", (key, provider, time.time(), body))
-                return body, {"cached": False, "auth_source": auth_source, **response_info}
+                result_info = {"cached": False, "auth_source": auth_source, "network_route": routing["route"],
+                               "route_reason": routing["reason"], **response_info}
+                if provider == "scopus":
+                    result_info["institutional_token"] = bool(insttoken)
+                    result_info["institutional_token_source"] = insttoken_source
+                return body, result_info
             except urllib.error.HTTPError as exc:
                 info = {**diagnostic(exc.code, exc.headers), "auth_source": auth_source}
                 delay = retry_delay(exc.headers.get("Retry-After", ""))
