@@ -57,6 +57,8 @@ class Companion:
         self.status_color = (0.12, 0.88, 0.59)
         self.entrance_frame = 0
         self.entrance_target = None
+        badge_path = Path(__file__).resolve().parents[1] / "assets" / "host-badge.png"
+        self.host_badge = cairo.ImageSurface.create_from_png(str(badge_path)) if badge_path.is_file() else None
 
         self.button_window = Gtk.Window(type=Gtk.WindowType.TOPLEVEL)
         self.button_window.set_name("vr-button-window")
@@ -232,6 +234,26 @@ class Companion:
             ctx.set_source_rgb(1, 1, 1)
             ctx.arc(x, y, 3.6, 0, math.pi * 2)
             ctx.fill()
+
+        if self.host_badge is not None:
+            ctx.set_source_rgba(0, 0, 0, 0.32)
+            ctx.arc(43.0, 44.0, 10.0, 0, math.pi * 2)
+            ctx.fill()
+            ctx.set_source_rgba(0.98, 0.99, 1.0, 0.98)
+            ctx.arc(43.0, 43.0, 10.0, 0, math.pi * 2)
+            ctx.fill()
+            ctx.save()
+            ctx.arc(43.0, 43.0, 7.8, 0, math.pi * 2)
+            ctx.clip()
+            ctx.translate(35.2, 35.2)
+            ctx.scale(15.6 / self.host_badge.get_width(), 15.6 / self.host_badge.get_height())
+            ctx.set_source_surface(self.host_badge, 0, 0)
+            ctx.paint()
+            ctx.restore()
+            ctx.set_source_rgba(1, 1, 1, 0.72)
+            ctx.set_line_width(0.8)
+            ctx.arc(43.0, 43.0, 9.6, 0, math.pi * 2)
+            ctx.stroke()
         return False
 
     def set_status(self, color):

@@ -73,6 +73,7 @@ static BOOL AcquireInstanceLock(NSString *pidFilePath) {
 @property(nonatomic, strong) NSTrackingArea *hoverArea;
 @property(nonatomic, strong) NSArray<CAShapeLayer *> *nodeHalos;
 @property(nonatomic, strong) CAShapeLayer *edgeTraveler;
+@property(nonatomic, strong) NSImage *hostBadge;
 @end
 
 @implementation VRResearchButton
@@ -147,6 +148,38 @@ static BOOL AcquireInstanceLock(NSString *pidFilePath) {
     for (NSValue *value in points) {
         NSPoint point = value.pointValue;
         [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(point.x - 4, point.y - 4, 8, 8)] fill];
+    }
+
+    if (!self.hostBadge) {
+        NSString *badgePath = [NSBundle.mainBundle pathForResource:@"host-badge" ofType:@"png"];
+        if (badgePath.length) self.hostBadge = [[NSImage alloc] initWithContentsOfFile:badgePath];
+    }
+    if (self.hostBadge) {
+        NSRect badgeFrame = NSMakeRect(NSMaxX(self.bounds) - 24, 4, 20, 20);
+        NSRect imageFrame = NSInsetRect(badgeFrame, 2.2, 2.2);
+        NSBezierPath *backing = [NSBezierPath bezierPathWithRoundedRect:badgeFrame xRadius:6.5 yRadius:6.5];
+        [NSGraphicsContext saveGraphicsState];
+        NSShadow *badgeShadow = [[NSShadow alloc] init];
+        badgeShadow.shadowColor = [NSColor colorWithWhite:0 alpha:.32];
+        badgeShadow.shadowBlurRadius = 2.5;
+        badgeShadow.shadowOffset = NSMakeSize(0, -1);
+        [badgeShadow set];
+        [[NSColor colorWithWhite:.98 alpha:.96] setFill];
+        [backing fill];
+        [NSGraphicsContext restoreGraphicsState];
+
+        [NSGraphicsContext saveGraphicsState];
+        [[NSBezierPath bezierPathWithRoundedRect:imageFrame xRadius:4.6 yRadius:4.6] addClip];
+        [self.hostBadge drawInRect:imageFrame
+                          fromRect:NSZeroRect
+                         operation:NSCompositingOperationSourceOver
+                          fraction:1.0
+                    respectFlipped:YES
+                             hints:@{NSImageHintInterpolation: @(NSImageInterpolationHigh)}];
+        [NSGraphicsContext restoreGraphicsState];
+        [[NSColor colorWithWhite:1 alpha:.72] setStroke];
+        backing.lineWidth = .8;
+        [backing stroke];
     }
 }
 @end

@@ -125,6 +125,7 @@ def check_host(plugin, host):
 def build_macos_app(source, app_path):
     output = app_path / "Contents" / "MacOS" / "VibeResearchCompanion"
     resources = app_path / "Contents" / "Resources"
+    badge = source.parent.parent / "assets" / "host-badge.png"
     output.parent.mkdir(parents=True, exist_ok=True)
     resources.mkdir(parents=True, exist_ok=True)
     environment = os.environ.copy()
@@ -138,6 +139,9 @@ def build_macos_app(source, app_path):
     if completed.returncode:
         detail = completed.stderr.strip().splitlines()
         raise RuntimeError("研究伴侣编译失败：" + (detail[-1] if detail else "clang 返回错误"))
+    if not badge.is_file():
+        raise RuntimeError("研究伴侣缺少宿主应用角标")
+    shutil.copy2(badge, resources / "host-badge.png")
     plist = """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\"><dict>
@@ -221,7 +225,8 @@ def build_windows_app(plugin, runtime, rid):
     if not dotnet or not windows_sdk_ready():
         raise RuntimeError("安装包缺少对应 Windows 研究伴侣。请改用 GitHub Release 完整包，或安装 .NET 8 SDK 后重试。")
     project = plugin / "scripts" / "companion" / "windows" / "VibeResearchCompanion.csproj"
-    digest = hashlib.sha256(project.read_bytes() + project.with_name('Program.cs').read_bytes() + project.with_name('app.manifest').read_bytes()).hexdigest()[:16]
+    badge = project.parent.parent / "assets" / "host-badge.png"
+    digest = hashlib.sha256(project.read_bytes() + project.with_name('Program.cs').read_bytes() + project.with_name('app.manifest').read_bytes() + (badge.read_bytes() if badge.is_file() else b"")).hexdigest()[:16]
     output = runtime / "bin" / digest / rid
     binary = output / "VibeResearchCompanion.exe"
     if binary.is_file():
@@ -276,7 +281,8 @@ def wait_for_pid(pid_file_path):
 
 def launch_macos(plugin, runtime, url, title, ui_state_path, pid_file_path, log_path):
     source = plugin / "scripts" / "companion" / "macos" / "main.m"
-    digest = hashlib.sha256(source.read_bytes()).hexdigest()[:16]
+    badge = source.parent.parent / "assets" / "host-badge.png"
+    digest = hashlib.sha256(source.read_bytes() + (badge.read_bytes() if badge.is_file() else b"")).hexdigest()[:16]
     app_path = runtime / "bin" / digest / "Vibe Research Companion.app"
     binary = app_path / "Contents" / "MacOS" / "VibeResearchCompanion"
     if not binary.is_file():

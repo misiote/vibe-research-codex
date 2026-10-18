@@ -47,6 +47,7 @@ internal static class Program
 
 internal sealed class ResearchCompanionButton : Control
 {
+    private readonly Image? hostBadge;
     public event EventHandler? KeyboardActivate;
     public double MotionPhase { get; set; }
     public Color StatusColor { get; set; } = Color.FromArgb(31, 224, 150);
@@ -60,6 +61,12 @@ internal sealed class ResearchCompanionButton : Control
         AccessibleName = "打开研究现场";
         AccessibleRole = AccessibleRole.PushButton;
         AccessibleDescription = "打开 Vibe Research 研究现场；拖拽可移动入口";
+        var badgePath = Path.Combine(AppContext.BaseDirectory, "host-badge.png");
+        if (File.Exists(badgePath))
+        {
+            using var source = Image.FromFile(badgePath);
+            hostBadge = new Bitmap(source);
+        }
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -98,6 +105,23 @@ internal sealed class ResearchCompanionButton : Control
             g.FillEllipse(halo, points[index].X - haloRadius, points[index].Y - haloRadius, haloRadius * 2, haloRadius * 2);
             using var node = new SolidBrush(Color.White);
             g.FillEllipse(node, points[index].X - 4, points[index].Y - 4, 8, 8);
+        }
+
+        if (hostBadge is not null)
+        {
+            var badgeFrame = new RectangleF(38, 38, 21, 21);
+            using var badgeShadow = new SolidBrush(Color.FromArgb(80, 0, 0, 0));
+            g.FillEllipse(badgeShadow, badgeFrame.X, badgeFrame.Y + 1, badgeFrame.Width, badgeFrame.Height);
+            using var backing = new SolidBrush(Color.FromArgb(248, 250, 252));
+            g.FillEllipse(backing, badgeFrame);
+            var state = g.Save();
+            using var clip = new System.Drawing.Drawing2D.GraphicsPath();
+            clip.AddEllipse(40.5f, 40.5f, 16f, 16f);
+            g.SetClip(clip);
+            g.DrawImage(hostBadge, 40.5f, 40.5f, 16f, 16f);
+            g.Restore(state);
+            using var badgeOutline = new Pen(Color.FromArgb(185, 255, 255, 255), .9f);
+            g.DrawEllipse(badgeOutline, badgeFrame);
         }
     }
 
