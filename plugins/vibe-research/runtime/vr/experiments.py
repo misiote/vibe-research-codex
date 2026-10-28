@@ -10,6 +10,10 @@ def validate(spec):
         return ["实验规范必须是 JSON 对象"]
     errors = []
     required = {"command", "repo", "config", "seeds", "metrics", "baselines", "held_out_opponents", "cross_play", "population_size", "compute_budget", "fairness", "exploitability"}
+    profile=spec.get('profile','marl')
+    if profile not in ('marl','generic'): return ['profile 需为 marl/generic']
+    if profile=='generic':
+        required={'command','repo','config','seeds','metrics','baselines','compute_budget','data_split','success_threshold','stop_rule'}
     for key in sorted(required - set(spec)):
         errors.append("缺少 " + key)
     seeds = spec.get("seeds", [])
@@ -22,7 +26,7 @@ def validate(spec):
         errors.append("cross_play 需描述评估方法或不适用理由，不能只写布尔值")
     if not isinstance(spec.get("metrics", []), list) or not all(isinstance(x, str) for x in spec.get("metrics", [])):
         errors.append("metrics 需要指标名称列表")
-    if "population_size" in spec and (type(spec["population_size"]) is not int or spec["population_size"] < 1):
+    if profile=='marl' and "population_size" in spec and (type(spec["population_size"]) is not int or spec["population_size"] < 1):
         errors.append("population_size 应为正整数")
     return errors
 
@@ -32,7 +36,7 @@ def plan(store, hypothesis, spec):
         raise ResearchError("experiment plan 需要 H 节点")
     errors = validate(spec)
     if errors:
-        raise ResearchError("MARL 实验规范未通过: " + "; ".join(errors))
+        raise ResearchError("实验规范未通过: " + "; ".join(errors))
     ident = store.add_node("X", spec.get("title", "Test " + hypothesis), {"hypothesis": hypothesis, "spec": spec})
     store.add_edge(hypothesis, "tested_by", ident)
     return ident

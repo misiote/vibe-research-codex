@@ -1,7 +1,7 @@
 """Evidence-based progress; no fabricated overall completion percentage."""
 from collections import Counter
 from .store import now, atomic, dumps
-from .reading import report, queue_action
+from .reading import report, queue_action, processing_stage
 
 
 def snapshot(store):
@@ -21,9 +21,11 @@ def snapshot(store):
             papers.append({'id': n['id'], 'title': n['title'], 'fulltext': fulltext,
                            'complete': fulltext and not missing and d.get('reading_status') == 'complete',
                            'accepted_sections': sections, 'missing_sections': missing,
-                           'status': d.get('reading_status', 'metadata_only'),
+                           'status': d.get('reading_status', 'metadata_only'), 'reading_depth': d.get('reading_depth', 'deep'), 'reading_notes': d.get('reading_notes', {}),
                            'screening_verdict': d.get('screening', {}).get('verdict'),
                            'screening_reason': d.get('screening', {}).get('reason'),
+                           'publication_date':str(d.get('bibliography',{}).get('published_date') or d.get('bibliography',{}).get('year') or ''),
+                           'processing_rank':processing_stage(n,fulltext and not missing and d.get('reading_status')=='complete'),
                            'queue_action': queue_action(n)})
         if n['kind'] == 'V':
             d = n['data']

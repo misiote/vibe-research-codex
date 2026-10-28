@@ -44,9 +44,9 @@ description: 在 Vibe Research 中开始、暂停或恢复研究工作，按项�
 
 固定入口已支持三步新项目向导：研究问题、来源选择、创建确认。已有项目直接进入，不因重开聊天重复引导。创建仅初始化研究库与保存来源偏好，不代表联网检索已执行；研究项目也不自动等同于 Codex 原生侧栏项目。`hub list` 返回 onboarding.providers，开始检索时沿用这些偏好；尚未核验或上次受阻的来源先通过 integrations 检查。
 
-需多来源覆盖时用 `retrieval start --title ... --query ... --provider ... --include ...`（来源和查询可重复指定），随后显式运行 `retrieval launch` 或短时 `retrieval worker`。`retrieval status` 显示每来源游标、待补状态和 worker 存活情况。恢复前先读状态，再决定续跑；没有存活 worker 不承诺自动续查。`scout` / auto 的首个成功来源回退不能替代覆盖检索。发现型 Hugging Face 保留为范围待核查，不能计为完整覆盖。候选只有显式 `retrieval import` 才进入研究图。导入后必须做初筛；只要判定对当前问题有价值，就用 `reading triage ... valuable` 立即进入系统精读。恢复研究时先查看 `reading queue`：有全文的继续系统精读，无全文的先补全文并保留明确阻塞。精读证据仍需独立审阅，不能因初筛有价值就视为结论已验证。
+需多来源覆盖时用 `retrieval start --title ... --query ... --provider ... --include ...`（来源和查询可重复指定），随后显式运行 `retrieval launch` 或短时 `retrieval worker`。`retrieval status` 显示每来源游标、待补状态和 worker 存活情况。恢复前先读状态，再决定续跑；没有存活 worker 不承诺自动续查。`scout` / auto 的首个成功来源回退不能替代覆盖检索。发现型 Hugging Face 保留为范围待核查，不能计为完整覆盖。候选只有显式 `retrieval import` 才进入研究图。导入后必须做初筛；判定对当前问题有价值后，用 `reading triage ... valuable --depth summary|skim|deep` 按用户选择或任务深度开始阅读。恢复研究时先查看 `reading queue`：按所选深度继续；概要可从摘要开始，粗读/精读缺全文则补全文并保留明确阻塞。精读证据仍需独立审阅，不能因初筛有价值就视为结论已验证。
 
-归档和从入口移除保留文件，可通过 `hub restore` 恢复；先暂停当前工作和待补检索，等待 worker 退出。不要把“从入口移除”称为删除文件。目录迁移先登记以保存项目身份，移动后用 `hub relocate` 验证身份并保留旧链接。物理回收站和永久删除尚未交付。原生 Codex 项目映射用 `hub bind-codex` 保存真实宿主项目 ID 与根目录；先从 list_projects 核验，不推测 ID、不冒充已创建宿主项目。
+归档和从入口移除保留文件，可通过 `hub restore` 恢复；归档/移除仅整理入口，不以工作、待补检索或 worker 状态作为前置条件；提醒用户核对是否仍有任务运行，经确认即可操作，不自动暂停、结束工作或停止进程。不要把“从入口移除”称为删除文件。目录迁移先登记以保存项目身份，移动后用 `hub relocate` 验证身份并保留旧链接。物理回收站和永久删除尚未交付。原生 Codex 项目映射用 `hub bind-codex` 保存真实宿主项目 ID 与根目录；先从 list_projects 核验，不推测 ID、不冒充已创建宿主项目。
 
 
 工作台覆盖卡片已提供暂停、恢复、逐源重试/排除与显式启动后台。恢复状态不会自动启动联网；没有自动可处理项时执行器退出。用户查看候选时优先使用可读覆盖报告，而非原始 JSON。
@@ -63,3 +63,9 @@ description: 在 Vibe Research 中开始、暂停或恢复研究工作，按项�
 跨网络恢复时读取 `integrations network`：Scopus 的机构网页入口、校园 VPN 和 Institutional Token 是不同能力。浏览器入口不路由 API；校园 VPN 只在真实 API 验收通过后视为可用；全局应用代理与校园 VPN 并存时，Scopus API 使用系统直连路由，其他公开来源可继续使用应用代理。长时间离开、隧道或代理状态变化、上次 401/403 时重新验收。
 
 `integrations diagnostics <新文件>` 导出白名单状态供本人查看，不含研究题目、查询、目录、原始错误和凭据，不自动上传。插件包与用户研究目录分离；分发包的同机新目录验收不等同于 Codex 安装成功或另一台实机验收。
+
+Lightning 草稿不属于研究工作进程；用 lightning list/packet 恢复，不调用 hub create/work start，不把草稿写入原项目。研究历史 global/local 是学术演化视图，工作 history/recover 仍是操作记录。
+
+## 阶段管理
+
+恢复项目、保存实质里程碑或目标改变时，主 agent 读取 [项目与分支管理流](../vibe-research/references/management-flow.md)，用 `vr workflow assess` 评估是否建议转换、派生、切换或保存版本；用 `workflow record` 保留用户选择与执行回执。用户已明确授权时直接执行，同一目标不重复询问；一次性报告不默认派生项目。普通问答和界面维护不启动此流程。

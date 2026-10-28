@@ -1,7 +1,7 @@
 {
   "name": "vibe-research",
-  "version": "0.5.0",
-  "description": "用可追溯研究图、多来源检索、洞察式精读与科研写作管理研究。",
+  "version": "0.10.1",
+  "description": "通过 Lightning、独立 Brainstorming / Engineering 项目与 giver 管理研究路线和版本。",
   "author": {
     "name": "misiote"
   },
@@ -10,8 +10,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Vibe Research",
-    "shortDescription": "从研究问题到证据与实验，保留可接续过程。",
-    "longDescription": "本机研究工作台、持久文献检索、证据质量精读、研究版图与科研写作。研究文件独立于插件安装；凭据不进入项目备份。",
+    "shortDescription": "构想、证据与实施，同一研究现场。",
+    "longDescription": "主题研究空间、文献分层阅读、研究历史与方向研判；连接代码、实验和学术材料，保留可追溯进展。",
     "developerName": "misiote",
     "category": "Productivity",
     "capabilities": [],

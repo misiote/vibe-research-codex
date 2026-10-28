@@ -1,0 +1,23 @@
+{
+  "repository": "https://github.com/K-Dense-AI/scientific-agent-skills",
+  "commit": "593377bb048752abb0152deab9fbb1083a6087df",
+  "license": "MIT",
+  "files": [
+    {
+      "path": "LICENSE.md",
+      "sha256": "09b02a3c9df3053c55531d503357a9c7cde275970e6c3ceaa1ddf5f0e90b40c1"
+    },
+    {
+      "path": "skills/research-grants/references/core_components.md",
+      "sha256": "73b5915fa8fb905949233d3e2cdc118525ac9b448cb0fb05407ee3d7ecf44cdb"
+    },
+    {
+      "path": "skills/research-grants/references/writing_principles.md",
+      "sha256": "718b079d8f93df8ce4bd44767b3d794ddde7ebe5901a9957caf7b2ace9c5bda8"
+    },
+    {
+      "path": "skills/research-grants/references/review_criteria.md",
+      "sha256": "e6d6b9822ee6cb744eff39a79a7502c3ce6668c76ae49a5f652793421e81a458"
+    }
+  ]
+}

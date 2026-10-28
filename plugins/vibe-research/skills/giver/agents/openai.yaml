@@ -1,0 +1,6 @@
+interface:
+  display_name: "giver"
+  short_description: "giver · 独立科研分支、快照、历史、比较、里程碑与可恢复版本管理"
+  default_prompt: "$giver "
+policy:
+  allow_implicit_invocation: false

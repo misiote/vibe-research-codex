@@ -39,7 +39,7 @@ def links(store, node):
         if url: out.append({'label':'论文来源页','url':url,'kind':'source'})
         pdf=safe_url(b.get('pdf_url'))
         if pdf: out.append({'label':'在线全文','url':pdf,'kind':'source'})
-        out.append({'label':'精读结果 · '+paper['title'].split(':')[0], 'url':'/reading/'+paper['id'],'kind':'reading'})
+        out.append({'label':'阅读结果 · '+paper['title'].split(':')[0], 'url':'/reading/'+paper['id'],'kind':'reading'})
     for a in files(store,node):
         suffix=Path(a['path']).suffix.lower()
         url=('/pdf/' if suffix=='.pdf' and sys.platform=='win32' else '/file/')+a['sha256']
@@ -88,6 +88,14 @@ def link_html(items):
 def reading_page(store, ident):
     p=store.get(ident)
     if p['kind']!='P': raise ResearchError('需要论文节点')
+    light_notes = p['data'].get('reading_notes', {})
+    light_html = '<article><p class="meta">所选深度：'+html.escape(reading.DEPTHS.get(p['data'].get('reading_depth','deep'),'精读'))+'。概要/粗读记录不计为已接受证据。</p>'
+    for depth, note in light_notes.items():
+        light_html += '<h2>'+html.escape(reading.DEPTHS.get(depth,depth))+'</h2><p class="meta">材料：'+html.escape(note['basis'])+' · '+html.escape(note['created_at'])+'</p>'
+        if note.get('document_sha256') and note['document_sha256'] != p['data'].get('active_document'): light_html += '<p>旧版本阅读记录，需重新核对。</p>'
+        for key, label in [('problem','问题'),('method','方法'),('results','结果'),('limitations','限制'),('relevance','任务关联'),('unknowns','未知')]:
+            light_html += '<h3>'+label+'</h3><p>'+html.escape(note[key])+'</p>'
+    light_html += '</article>'
     notes=[n for n in store.rows('nodes') if n['kind']=='V' and n['data'].get('paper')==ident]
     current=p['data'].get('active_document')
     accepted={n['data']['section'] for n in notes if n['data'].get('review_status')=='accepted' and n['data'].get('document_sha256')==current}
@@ -125,7 +133,7 @@ def reading_page(store, ident):
     overview='<article class="reading-overview" id="reading-overview"><h2>判断</h2><p><strong>'+html.escape(verdict)+'</strong> · '+html.escape(screening.get('reason','尚未留下初筛依据。'))+'</p><div class="reading-metrics"><div class="reading-metric"><strong>'+str(len(accepted))+'/9</strong><span>阅读部分已审阅</span></div><div class="reading-metric"><strong>'+str(len(quality))+'/'+str(len(reading.QUALITY_DIMENSIONS))+'</strong><span>质量维度已判断</span></div><div class="reading-metric"><strong>'+document_state+'</strong><span>原文状态</span></div></div><p class="meta">原文匹配只证明引文位置存在；解释和质量判断仍需审阅。</p>'+link_html([l for l in links(store,p) if l['kind'] in {'source','file'}])+'</article>'
     if not current:overview+='<article class="notice">尚未获取全文；有价值的文献会保留在全文获取队列，不能据摘要声称完成精读。</article>'
     sidebar='<aside class="reading-sidebar"><strong>精读目录</strong><div class="reading-index"><a href="#reading-overview" aria-current="true"><span class="reading-dot done"></span><span>判断与进度</span><span class="reading-count">概览</span></a>'+''.join(index)+'</div><div class="reading-tools"><button data-reading-action="expand">展开全部</button><button data-reading-action="collapse">收起全部</button></div></aside>'
-    return page('精读结果 · '+p['title'],'<div class="reading-layout">'+sidebar+'<div class="reading-main">'+overview+''.join(sections)+'</div></div>')
+    return page('阅读结果 · '+p['title'],light_html+'<div class="reading-layout">'+sidebar+'<div class="reading-main">'+overview+''.join(sections)+'</div></div>')
 
 
 def node_page(store, ident):
@@ -137,8 +145,8 @@ def node_page(store, ident):
     return page(n['title'],body)
 
 
-SKILLS = {'citation-management':'文献检索与引用管理','scientific-critical-thinking':'批判性精读',
-          'research-reading-expert':'科研精读专家','research-landscape-expert':'研究关系专家','research-writing-editor':'科研写作编辑',
+SKILLS = {'giver':'giver 研究版本管理','vrpet':'唤起研究伴侣','lightning':'Lightning','brainstorming':'Brainstorming','engineering':'Engineering','research-admin-expert':'研究方案与学术材料','research-engineering-expert':'研究开发协同','citation-management':'文献检索与引用管理','scientific-critical-thinking':'批判性精读',
+          'research-reading-expert':'文献分层阅读','research-history-expert':'研究历史专家','research-direction-expert':'研究方向决策','research-landscape-expert':'研究关系专家','research-writing-editor':'科研写作编辑',
           'vibe-research-continuity':'研究工作接续','vibe-research-team':'研究专家协作'}
 
 def skill_catalog():

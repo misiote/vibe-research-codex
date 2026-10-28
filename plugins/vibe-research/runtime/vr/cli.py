@@ -67,6 +67,46 @@ def parser():
     command('relate',[arg('source'),arg('target'),arg('--kind',required=True,choices=('derived_from','related_to','reproduces')),arg('--reason',required=True),arg('--registry',default='projects.json')],hub)
     command('relocate',[arg('id'),arg('path'),arg('--registry',default='projects.json')],hub)
     command('create',[arg('--registry',default='projects.json'),arg('--name',required=True),arg('--question',required=True),arg('--provider',action='append',required=True,choices=literature.ALL_SOURCES),arg('--request-id',required=True)],hub)
+    command('giver',[arg('--workspace',required=True),arg('--input'),arg('arguments',nargs=argparse.REMAINDER)])
+    workflow=group('workflow')
+    for op in ('assess','record'):command(op,[arg('--workspace',required=True),arg('--input',required=True)],workflow)
+    command('status',[arg('--workspace',required=True)],workflow)
+    maintenance=group('maintenance')
+    command('reset',[arg('--workspace',required=True),arg('--confirmed',action='store_true')],maintenance)
+    bridge = group('bridge')
+    for op in ('preview','transfer'):command(op,[arg('--workspace',required=True),arg('--input',required=True)],bridge)
+    mode = group('mode')
+    command('catalog',parent=mode)
+    command('enter',[arg('mode',choices=('lightning','brainstorming','engineering')),arg('--workspace',required=True),arg('--session'),arg('--request',default=''),arg('--research-project'),arg('--fresh',action='store_true'),arg('--topic',default=''),arg('--board')],mode)
+    command('status',[arg('--workspace',required=True),arg('--session')],mode)
+    brainstorm = group('brainstorm')
+    for op in ('start','list','show','update','packet','handoff'):
+        opts=[arg('--workspace',required=True)]
+        if op not in ('start','list'): opts+=[arg('id')]
+        if op in ('start','update'): opts+=[arg('--input')]
+        if op=='start': opts+=[arg('--topic'),arg('--context',default='')]
+        if op=='list': opts+=[arg('--include-hidden',action='store_true')]
+        if op=='packet': opts+=[arg('--module',required=True,choices=('landscape','history','directions','proposal','progress'))]
+        command(op,opts,brainstorm)
+    engineering = group('engineering')
+    command('show',parent=engineering)
+    for op in ('link','task'): command(op,[arg('path')],engineering)
+    command('sync',[arg('id'),arg('--network',action='store_true')],engineering)
+    lightning = group('lightning')
+    for op in ('start', 'list', 'show', 'update', 'discard', 'packet', 'export'):
+        opts = [arg('--workspace', required=True)]
+        if op not in ('start', 'list'): opts += [arg('id')]
+        if op in ('start', 'update'): opts += [arg('--input')]
+        command(op, opts, lightning)
+    history = group('history')
+    for op in ('show', 'packet'):
+        command(op, [arg('--scope', choices=('global','local'), default='global'), arg('--focus',help=argparse.SUPPRESS), arg('--subtopic',default=''),arg('--aliases',default=''), arg('--topic', default=''), arg('--since'), arg('--until')], history)
+    command('add', [arg('path')], history)
+    command('search',[arg('--topic',required=True),arg('--scope',choices=('global','local'),default='global'),arg('--subtopic',default=''),arg('--aliases',default=''),arg('--since'),arg('--until'),arg('--provider',action='append',choices=literature.PROVIDERS),arg('--background',action='store_true')],history)
+    direction = group('direction')
+    command('packet', parent=direction)
+    command('list', parent=direction)
+    for op in ('evaluate', 'save'): command(op, [arg('path')], direction)
     command("trace", [arg("id")])
     command("decide", [arg("target"), arg("action", choices=("continues", "modifies", "prunes", "revives")), arg("--reason", required=True), arg("--evidence", required=True), arg("--revival")])
     command("compare", [arg("left"), arg("right")])
@@ -97,9 +137,14 @@ def parser():
     command("find", [arg("id"), arg("query")], paper)
     read = group("reading")
     for name in ("packet", "report", "complete"):
-        command(name, [arg("id")], read)
+        opts = [arg("id")]
+        if name == 'packet': opts += [arg('--depth', choices=tuple(reading.DEPTHS))]
+        command(name, opts, read)
+    command('plan', [arg('--task', default='overview'), arg('--depth', choices=tuple(reading.DEPTHS))], read)
+    command('depth', [arg('id'), arg('depth', choices=tuple(reading.DEPTHS)), arg('--reason', required=True)], read)
+    command('note', [arg('id'), arg('path')], read)
     command("triage", [arg("id"), arg("verdict", choices=tuple(sorted(reading.SCREENING_VERDICTS))),
-                       arg("--reason", required=True), arg("--basis", choices=tuple(sorted(reading.SCREENING_BASES)), default="title_abstract")], read)
+                       arg("--reason", required=True), arg("--basis", choices=tuple(sorted(reading.SCREENING_BASES)), default="title_abstract"), arg("--depth", choices=tuple(reading.DEPTHS))], read)
     command("queue", parent=read)
     command("add", [arg("id"), arg("path")], read)
     command("review", [arg("id"), arg("verdict", choices=("accepted", "rejected")), arg("--reason", required=True)], read)
@@ -157,6 +202,43 @@ def safe_render(s):
 
 def run(a):
     root = root_path(a.project)
+    if a.cmd=='giver':
+        from . import giver
+        return giver.execute(a.workspace,**load(a.input)) if a.input else giver.command(a.workspace,a.arguments)
+    if a.cmd=='workflow':
+        from . import workflow
+        return workflow.load(a.workspace) if a.op=='status' else getattr(workflow,a.op)(a.workspace,load(a.input))
+    if a.cmd=='maintenance':
+        from . import maintenance
+        return maintenance.reset(a.workspace,a.confirmed)
+    if a.cmd=='bridge':
+        from . import bridge
+        return getattr(bridge,a.op)(a.workspace,load(a.input))
+    if a.cmd == 'mode':
+        from . import modes
+        if a.op=='catalog': return modes.MODES
+        session=modes.current_session(a.session)
+        if a.op=='status': return modes.status(a.workspace,session)
+        return modes.enter(a.workspace,session,a.mode,a.request,a.research_project,a.fresh,a.topic,a.board)
+    if a.cmd=='brainstorm':
+        from . import brainstorm
+        if a.op=='list': return brainstorm.listing(a.workspace,include_hidden=a.include_hidden)
+        if a.op=='show': return brainstorm.show(a.workspace,a.id)
+        if a.op=='packet': return brainstorm.packet(a.workspace,a.id,a.module)
+        if a.op=='handoff': return brainstorm.handoff(a.workspace,a.id)
+        spec=load(a.input) if a.input else ({'topic':a.topic,'context':a.context} if a.op=='start' else {})
+        return brainstorm.write(a.workspace,getattr(a,'id',None),**spec)
+    if a.cmd == 'lightning':
+        from . import lightning
+        if a.op == 'list': return lightning.listing(a.workspace)
+        if a.op == 'discard': return lightning.discard(a.workspace, a.id)
+        if a.op == 'packet': return lightning.packet(a.workspace, a.id)
+        if a.op == 'export':
+            d = lightning.show(a.workspace, a.id)
+            return {'filename': d['id'] + '.md', 'markdown': '# ' + d['title'] + '\n\n' + d['body'] + '\n\n' + d['output']}
+        if a.op == 'show': return lightning.show(a.workspace, a.id)
+        return lightning.write(a.workspace, getattr(a, 'id', None), **(load(a.input) if a.input else {}))
+    if a.cmd == 'reading' and a.op == 'plan': return reading.plan(a.task, a.depth)
     if a.cmd == 'bundle':
         from . import backup
         return backup.create(root,a.path) if a.op=='create' else backup.restore(a.path,a.destination)
@@ -179,6 +261,23 @@ def run(a):
         from .watch import serve
         return serve(root, a.port, a.open)
     s = Store(root)
+    if a.cmd == 'engineering':
+        from . import engineering
+        if a.op=='show': return engineering.snapshot(s)
+        if a.op=='sync': return mutate(s,a,lambda:engineering.sync(s,a.id,a.network))
+        return mutate(s,a,lambda:getattr(engineering,a.op)(s,load(a.path)))
+    if a.cmd == 'history':
+        from . import history
+        if a.op == 'add': return mutate(s, a, lambda: history.record(s, load(a.path)))
+        if a.op == 'search': return history.search(s,a.topic,a.scope,a.subtopic,a.aliases,a.since,a.until,a.provider,a.background)
+        if a.op == 'packet': return history.packet(s, a.topic, a.scope, a.focus,a.subtopic,a.aliases)
+        return history.snapshot(s, a.scope, a.focus, a.topic, a.since, a.until,a.subtopic,a.aliases)
+    if a.cmd == 'direction':
+        from . import directions
+        if a.op == 'packet': return directions.packet(s)
+        if a.op == 'list': return [n for n in s.rows('nodes') if n['data'].get('source_type') == 'direction_assessment']
+        if a.op == 'evaluate': return directions.evaluate(s, load(a.path))
+        return mutate(s, a, lambda: directions.save(s, load(a.path)))
     if a.cmd == "work":
         from . import activity
         if a.op == 'history': return activity.history(root,a.limit,a.offset,a.since,a.until)
@@ -366,12 +465,14 @@ def run(a):
                 papers.append(row)
             return papers
     if a.cmd == "reading":
+        if a.op == 'depth': return mutate(s, a, lambda: reading.select_depth(s, a.id, a.depth, a.reason))
+        if a.op == 'note': return mutate(s, a, lambda: reading.save_note(s, a.id, load(a.path)))
         if a.op == "queue":
             return reading.queue(s)
         if a.op == "triage":
-            return mutate(s, a, lambda: reading.triage(s, a.id, a.verdict, a.reason, a.basis))
+            return mutate(s, a, lambda: reading.triage(s, a.id, a.verdict, a.reason, a.basis, a.depth))
         if a.op == "packet":
-            return reading.packet(s, a.id)
+            return reading.packet(s, a.id, a.depth)
         if a.op == "report":
             return reading.report(s, a.id)
         if a.op == "add":
@@ -414,6 +515,7 @@ def run(a):
 def main(argv=None):
     args = parser().parse_args(argv)
     def record(result=None, failed=False):
+        if args.cmd in ('lightning','mode','brainstorm','bridge','maintenance','giver','workflow') or (args.cmd == 'reading' and args.op == 'plan'): return
         from .activity import operation
         try:
             operation(root_path(args.project), args, result, failed)

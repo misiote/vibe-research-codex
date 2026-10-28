@@ -12,6 +12,7 @@ def data(store):
         nodes.append({k: n[k] for k in ('id', 'kind', 'title', 'status')} | {
             'reading_status': d.get('reading_status'), 'review_status': d.get('review_status'),
             'screening_verdict': d.get('screening', {}).get('verdict'),
+            'hidden_by_default':n['kind']=='P' and (d.get('screening',{}).get('verdict')=='exclude' or d.get('reading_status')=='screened_out'),
             'screening_reason': d.get('screening', {}).get('reason'),
             'page': d.get('page'), 'quote': d.get('quote'), 'interpretation': d.get('interpretation'),
             'source_url': d.get('bibliography', {}).get('url'),
@@ -23,6 +24,7 @@ def data(store):
 def fragment(store):
     template = (Path(__file__).parent / 'templates/research_graph.html').read_text(encoding='utf8')
     template = template.replace('__GRAPH_PHYSICS__', (Path(__file__).parent / 'templates/graph_physics.js').read_text(encoding='utf8'))
+    template=template.replace('__GRAPH_STAGE__',(Path(__file__).parent/'templates/graph_stage.js').read_text(encoding='utf8'))
     return template.replace('__GRAPH_DATA__', json.dumps(data(store), ensure_ascii=False).replace('<', '\\u003c'))
 
 

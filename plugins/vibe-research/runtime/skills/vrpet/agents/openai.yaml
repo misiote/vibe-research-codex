@@ -1,0 +1,6 @@
+interface:
+  display_name: "vrpet"
+  short_description: "Vibe Research · 直接唤起当前工作区的悬浮研究伴侣按钮"
+  default_prompt: "$vrpet "
+policy:
+  allow_implicit_invocation: false

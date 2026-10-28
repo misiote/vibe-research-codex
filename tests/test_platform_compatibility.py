@@ -1,5 +1,6 @@
 """Offline regressions for Windows fixes and unchanged macOS/Linux behavior."""
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -30,6 +31,13 @@ def script(name):
 
 
 class PlatformCompatibility(unittest.TestCase):
+    def test_distribution_checksums_cover_companion_assets(self):
+        checksums = json.loads((PLUGIN / 'SHA256SUMS.json').read_text(encoding='utf8'))
+        self.assertIn('scripts/companion/assets/host-badge.png', checksums)
+        for name, expected in checksums.items():
+            with self.subTest(file=name):
+                self.assertEqual(hashlib.sha256((PLUGIN / name).read_bytes()).hexdigest(), expected)
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='vibe-中文 空格-')
         self.addCleanup(temporary.cleanup)

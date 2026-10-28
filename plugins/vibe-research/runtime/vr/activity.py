@@ -102,6 +102,10 @@ ACTIONS = {
     'scout': '归档文献检索与候选线索', 'bibliography': '生成书目与离线校验记录',
     'search': '文献检索', 'paper.import': '导入文献记录', 'paper.attach': '归档文献全文',
     'paper.expand': '扩展引用线索', 'reading.add': '保存精读证据（仍需审阅）',
+    'reading.depth': '选择文献阅读深度', 'reading.note': '保存概要或粗读笔记',
+    'engineering.link':'关联研究开发环境', 'engineering.task':'更新工程工作包','engineering.sync':'采集开发进度快照',
+    'history.search':'建立主题历史检索',
+    'history.add': '归档研究历史时间轴', 'direction.save': '保存研究方向评估',
     'reading.review': '记录证据审阅', 'reading.complete': '检查并标记精读完成',
     'node.add': '保存研究节点', 'edge.add': '建立研究关系', 'edge.remove': '移除研究关系',
     'transition': '记录研究状态变化', 'artifact.add': '归档研究产物',
@@ -171,7 +175,7 @@ def instructions():
 区分“已找到全文”“证据待审阅”“结论已验证”；工作报告不当作研究证据。默认不汇报原始命令、内部思考、令牌流和重复日志，不写入密钥。
 超过约一分钟的长操作，在确实仍执行或等待时更新说明或用 `vr work heartbeat`；不得用脱离实际执行的永久心跳冒充在工作。
 需要用户决定时用 --needs-user 写出问题，并在 Codex 对话中提问；页面提示不能替代用户回答。结束、失败和暂停等待都如实记录，不能留下虚假的运行状态。
-文献工作使用 `vr scout` 记录查询、纳入标准与命中来源，导入后用 `vr reading triage` 记录初筛理由。判定有价值即在同一轮进入系统精读：先检查 `vr reading queue`，无全文则先补全文并留下阻塞，有全文则用 `vr reading packet` 执行逐页审计；不等待用户再次要求。`vr bibliography` 输出书目与离线校验。工作区存在 citation-management / scientific-critical-thinking 技能时，先阅读相关 SKILL.md；不要把初筛有价值、技能加载或离线校验当成研究结论验证。
+文献工作使用 `vr scout` 记录查询、纳入标准与命中来源，导入后用 `vr reading triage` 记录初筛理由。按任务使用 `vr reading plan` 选择概要、粗读或精读，并检查 `vr reading queue`；概要可基于摘要，粗读与精读需要全文。概要或粗读用 `vr reading note` 保存，不当作精读证据；需要精读时用 `vr reading packet` 执行逐页审计，缺全文则记录阻塞。`vr bibliography` 输出书目与离线校验。工作区存在 citation-management / scientific-critical-thinking 技能时，先阅读相关 SKILL.md；不要把初筛有价值、技能加载或离线校验当成研究结论验证。
 用户可用 `vr watch` 打开动态工作现场。CLI 自动记录重要操作，CLI 外的工作由助手主动汇报；这不是对所有 Codex 工具的自动监听。
 '''
 

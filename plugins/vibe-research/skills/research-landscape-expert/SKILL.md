@@ -25,3 +25,5 @@ description: 梳理研究方向的可见进展、争议、路线和空白，并�
 
 正式成文交给 `research-writing-editor`。编辑不得把有限覆盖改成“全面”，不得消除分歧、来源失败或置信度。
 
+
+历史演化交给 `research-history-expert` 以 global/local 时间轴保存；优先级与最小实验交给 `research-direction-expert`。候选概要筛选、粗读建图，关键争议与方向依据升级精读；不要为一次 Lightning 发散图建立正式项目。

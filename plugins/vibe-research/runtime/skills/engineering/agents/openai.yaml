@@ -1,0 +1,6 @@
+interface:
+  display_name: "Engineering"
+  short_description: "Vibe Research · 研究实施与开发协同，以当前对话为范围保留模式与工作进展"
+  default_prompt: "$engineering "
+policy:
+  allow_implicit_invocation: false

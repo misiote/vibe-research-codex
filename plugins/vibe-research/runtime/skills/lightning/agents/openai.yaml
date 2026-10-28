@@ -1,0 +1,6 @@
+interface:
+  display_name: "Lightning"
+  short_description: "Vibe Research · 即时探索与轻量创作，以当前对话为范围保留模式与工作进展"
+  default_prompt: "$lightning "
+policy:
+  allow_implicit_invocation: false

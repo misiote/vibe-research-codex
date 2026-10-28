@@ -95,7 +95,7 @@ def page(provider):
         institution = '''
 <section class="card"><h2>1 · 机构和网络</h2>
 <label>机构 <select id="institution"><option value="casia">中国科学院自动化研究所</option><option value="custom">其他机构</option><option value="none">暂不使用机构权限</option></select></label>
-<div id="custom-fields" hidden><label>机构名称 <input id="institution-name" maxlength="160" placeholder="学校或研究机构全称"></label><label>官方校外入口 <input id="portal-url" maxlength="500" placeholder="https://…"></label></div>
+<div id="custom-fields" hidden><label>机构名称 <input id="institution-name" maxlength="160"></label><label>官方校外入口 <input id="portal-url" maxlength="500"></label></div>
 <label>接入方式 <select id="method"><option value="auto">自动判断</option><option value="campus_vpn">校内网络或校园 VPN</option><option value="browser_portal">机构网页入口</option><option value="institutional_token">Elsevier Institutional Token</option><option value="public_only">仅使用公开/基础 API 权限</option></select></label>
 <label>当前位置 <select id="network"><option value="unknown">尚未确认</option><option value="campus">当前在机构内网</option><option value="off_campus">当前在机构外</option></select></label>
 <div class="actions"><button id="save-profile">保存并检查路由</button><a id="institution-portal" target="_blank" rel="noreferrer">打开机构官方入口</a></div><p id="route-note" class="note"></p></section>
@@ -108,7 +108,7 @@ def page(provider):
         query = ''
     else:
         placeholder = '10.1038/nature12373' if provider == 'unpaywall' else 'machine learning'
-        query = f'<section class="card"><h2>{"3" if provider == "scopus" else "2"} · 实际验证</h2><label>测试查询 <input id="query" maxlength="1000" placeholder="{placeholder}"></label><button id="verify">验证一次连接</button><p class="note">只做单条只读查询，不导入文献。网页能登录不等于 API 已获得机构权限。</p></section>'
+        query = f'<section class="card"><h2>{"3" if provider == "scopus" else "2"} · 实际验证</h2><label>测试查询 <input id="query" maxlength="1000"></label><button id="verify">验证一次连接</button><p class="note">只做单条只读查询，不导入文献。网页能登录不等于 API 已获得机构权限。</p></section>'
     steps = ''.join('<li>' + escape(step) + '</li>' for step in guide['steps'])
     return f'''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{escape(guide['title'])}</title><style>
 :root{{font-family:system-ui;color:#20344e;background:#eef4fa}}*{{box-sizing:border-box}}body{{margin:0}}main{{max-width:880px;margin:auto;padding:28px 20px 60px}}header,.card{{background:white;border:1px solid #d6e2ef;border-radius:16px;padding:22px;margin-bottom:14px}}h1{{margin:.2em 0}}h2{{font-size:18px;margin-top:0}}li{{margin:10px 0}}label{{display:block;margin:12px 0}}button,input,select{{font:inherit;padding:9px;border:1px solid #aabbd0;border-radius:8px}}input{{width:min(100%,520px)}}button{{cursor:pointer;background:#165f9f;color:white}}a{{color:#155b9c}}.actions{{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px}}.note{{background:#eef5fc;border-radius:9px;padding:10px;color:#52687f}}.warn{{background:#fff3d9;padding:10px;border-radius:9px;color:#875000}}details{{margin-top:14px}}#message[data-state="ok"]{{background:#e4f5ef;color:#176c5b}}#message[data-state="bad"]{{background:#ffebe7;color:#9a3425}}

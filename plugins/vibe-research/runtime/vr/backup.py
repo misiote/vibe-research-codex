@@ -5,7 +5,7 @@ from .store import Store,ResearchError,now
 from . import filelock as fcntl
 
 DATABASES=('research.db','activity.db','retrieval.sqlite3')
-METADATA=('nodes.json','branches.json','events.jsonl','project-identity.json','source-profile.json')
+METADATA=('nodes.json','branches.json','events.jsonl','project-identity.json','source-profile.json','giver-modules.json')
 
 def allowed(name):
     p=PurePosixPath(name)

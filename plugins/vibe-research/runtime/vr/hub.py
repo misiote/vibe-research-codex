@@ -18,7 +18,8 @@ def entries(registry):
     return [{**r,'uuid':r.get('uuid',str(uuid.uuid5(uuid.NAMESPACE_URL,'vibe-research:'+r['id']))),'lifecycle':r.get('lifecycle','active'),'root':str((registry.parent/r['path']).resolve())} for r in rows]
 
 
-def register(registry,path,name):
+def register(registry,path,name,mode="engineering",board=None):
+    if mode not in ('brainstorming','engineering'):raise ResearchError('项目模式无效')
     registry=Path(registry).resolve();root=Path(path).resolve()
     s=Store(root)
     try:
@@ -35,21 +36,26 @@ def register(registry,path,name):
         else:
             existing={'id':'p'+uuid.uuid4().hex[:12], 'uuid':str(uuid.uuid4()),'lifecycle':'active','name':name,'path':os.path.relpath(root,registry.parent),'root':str(root)}
             rows.append(existing)
+        existing['mode']=mode
+        if board:existing['board']=board
         atomic(root/'.research/project-identity.json',json.dumps({'uuid':existing['uuid']}))
         atomic(registry,json.dumps({'version':2,'projects':[{k:v for k,v in r.items() if k!='root'} for r in rows]},ensure_ascii=False,indent=2))
     return {k:v for k,v in existing.items() if k!='root'}
 
 
 def catalog(registry,include_removed=False):
+    from . import giver
+    branch_names={b['project']:name for name,b in giver.load(Path(registry).resolve().parent)['branches'].items()}
     result=[]
     for row in entries(registry):
+        row={**row,'giver_branch':branch_names.get(row['id'])}
         if row['lifecycle']=='removed' and not include_removed:continue
         try:
             s=Store(row['root'])
             try:
                 current=activity.snapshot(s.root,{n['id'] for n in s.rows('nodes')})['current']
                 item={**row,'revision':s.revision(),'current':current,'available':True,'total':activity.history(s.root,1)['total'],
-                      'onboarding_required':not row.get('onboarding',{}).get('completed')}
+                      'onboarding_required':row.get('mode','engineering')!='brainstorming' and not row.get('onboarding',{}).get('completed')}
             finally: s.db.close()
         except Exception:
             item={**row,'available':False,'error':'项目不可读，请检查路径或数据库','current':None,'total':0}
@@ -74,19 +80,10 @@ def lifecycle(registry,ident,action,reason):
     with edit_registry(registry) as rows:
         row=next((r for r in rows if r['id']==ident),None)
         if row is None:raise ResearchError('项目未登记')
-        if action!='restore' and Path(row['root']).exists():
-            current=activity.snapshot(Path(row['root']),set())['current']
-            if current and current['state'] in ('working','waiting','blocked'):
-                raise ResearchError('先暂停或结束项目当前工作，再归档或从入口移除')
-            queue=retrieval.snapshot(row['root'])
-            with retrieval.database(row['root']) as db:
-                pending=db is not None and db.execute("SELECT 1 FROM tasks t JOIN runs r ON t.run=r.id WHERE r.paused=0 AND t.status NOT IN ('done','excluded') LIMIT 1").fetchone()
-            if queue['worker_alive'] or pending:
-                raise ResearchError('先暂停待补检索并等待后台 worker 退出')
         row['lifecycle']={'archive':'archived','restore':'active','remove':'removed'}[action]
         from .store import now
         row.setdefault('lifecycle_history',[]).append({'action':action,'reason':reason,'at':now()})
-    return {'id':ident,'lifecycle':row['lifecycle'],'note':'研究文件全部保留；移除仅隐藏入口，可恢复'}
+    return {'id':ident,'lifecycle':row['lifecycle'],'note':'研究文件全部保留，可恢复；归档或移除入口不会暂停工作、待补检索或实际运行进程'}
 
 
 def relocate(registry,ident,path):

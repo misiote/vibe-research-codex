@@ -16,7 +16,9 @@ def capabilities():
     base=meta['html_url']+'/tree/'+meta['commit']+'/skills/'
     return [
         {'title':'发现与检索','status':'已接入 · 免费来源','description':'保留查询词、筛选条件、时间、来源与失败记录；按论文标识去重，形成可追溯的检索节点。','note':'通过 vr scout 执行；候选文献需要继续筛选。','links':[{'label':'社区检索方法','url':base+'citation-management'}]},
-        {'title':'批判性精读','status':'已接入 · 助手执行','description':'结合原文检查研究设计、混杂因素、证据强弱和替代解释；保留页码与待审阅状态。','note':'使用九类精读记录，并按强化学习课题调整检查项。','links':[{'label':'技能来源','url':base+'scientific-critical-thinking'}]},
+        {'title':'分层文献阅读','status':'已接入 · 助手执行','description':'根据任务选择概要、粗读或精读；精读检查研究设计、证据强弱和替代解释，保留页码与待审阅状态。','note':'概要与粗读独立保存；精读使用九类证据记录。','links':[{'label':'技能来源','url':base+'scientific-critical-thinking'}]},
+        {'title':'研究历史','status':'已接入 · 助手执行','description':'以 global/local 时间轴呈现有来源的研究事件，关联研究图和阅读结果。','note':'global 表示当前资料覆盖的方向历史；local 深入主题下明确的子主题。','links':[]},
+        {'title':'方向决策','status':'已接入 · 辅助判断','description':'比较贡献、可行性、可检验性与信息增益；检查硬约束、证据缺口和权重敏感性。','note':'先补证据，再决定是否推荐；保留最小实验、停止与恢复条件。','links':[]},
         {'title':'引用与归档','status':'已接入 · 离线校验','description':'生成 BibTeX 并使用社区校验器检查字段、年份和重复记录；原文文件继续以哈希归档。','note':'离线校验不证明 DOI 在线可达，也不证明引用语义正确。','links':[{'label':'校验器来源','url':base+'citation-management/scripts/validate_citations.py'}]},
     ]
 
