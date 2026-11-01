@@ -1,5 +1,16 @@
 # Vibe Research 跨平台安装
 
+## 获取当前版本
+
+推荐克隆 `main`，或在 GitHub 的 Code 菜单选择 Download ZIP 后完整解压：
+
+```bash
+git clone https://github.com/misiote/vibe-research-codex.git
+cd vibe-research-codex
+```
+
+Release 附件对应其标签版本，可能早于 `main`；下载前请核对版本。源码包不保证包含 Windows 预编译伴侣。保留安装目录在固定位置：启动器优先使用该目录中的工具，短命令别名也指向此目录。
+
 ## 共同要求
 
 - Python 3.9 或更高版本。
@@ -18,7 +29,7 @@
 sh install.sh
 ```
 
-安装器会使用 `/Applications/ChatGPT.app/Contents/Resources/codex`（或 `PATH` 中的 `codex`）登记随包 marketplace，并安装、启用 Vibe Research。安装完成后：
+安装器优先使用 `PATH` 中的 `codex`，随后检查当前 ChatGPT App 的 `Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex`，并兼容旧版 `Contents/Resources/codex`。它会登记随包 marketplace，并安装、启用 Vibe Research。安装完成后：
 
 1. 用 `Command-Q` 完全退出 ChatGPT/Codex，然后重新打开；只关闭窗口不足以重新载入插件。
 2. 打开插件目录，选择来源 **Vibe Research**，确认 Vibe Research 显示为已安装。
@@ -79,20 +90,36 @@ vr-workbench
 
 首次数据库配置应在接收方自己的终端完成。macOS 默认使用系统钥匙串；Linux 与 Windows 优先使用环境变量，也可显式选择本机凭据文件。不要共享 API key、学校登录态或钥匙串内容。
 
+## 可选：注册短命令
+
+在仓库根目录执行，随后重启 App 或新建聊天：
+
+```bash
+python3 plugins/vibe-research/scripts/install_modes.py --install
+```
+
+Windows 将 `python3` 换成 `py -3`。这会注册 `/lightning`、`/brainstorming`、`/engineering`、`/giver`、`/vrpet` 五个显式原生 skill 入口；在命令/技能菜单中选择后输入需求。它们由 Codex 调度 skill，不是独立终端命令，也不依靠自由文本关键词分类。若宿主只显示带命名空间的名称，可从技能菜单选择对应入口。安装器遇到同名且不属于本插件的技能会拒绝覆盖。
+
 ## 分享研究项目
 
 此安装包不包含你的研究项目、数据库凭据或 Codex 聊天记录。分享研究现场时，另用 `vr bundle create` 创建项目备份；接收方用 `vr bundle restore --destination <新目录>` 恢复。
+
+完整迁移所有项目、Brainstorming 空间与 giver 版本关系时，请另外备份整个研究工作区；单项目 bundle 不等于整个工作区备份。
 
 项目 bundle 包含研究图、工作历史、检索队列和已登记附件，不包含外部代码仓库、数据库凭据或 Codex 任务。恢复后先运行 `doctor` 与连接检查，再继续工作。
 
 ## 更新与卸载
 
-持续发布时建议把整个 marketplace 目录放到 GitHub 仓库。更新：
+通过本仓库安装器安装的是**本地目录来源**。先备份研究工作区，在原安装目录更新后重跑安装器：
 
-```text
-codex plugin marketplace upgrade vibe-research-local
-codex plugin add vibe-research@vibe-research-local
+```bash
+git pull --ff-only
+sh install.sh
 ```
+
+Windows 在更新后重跑 `install-windows.cmd`。ZIP 安装请将新包放到原固定目录，再运行安装器。重启 App，并在新聊天中核对插件版本；安装过短命令别名时重新执行下面的别名安装。
+
+只有通过 `codex plugin marketplace add misiote/vibe-research-codex --ref main` 登记的 **Git 来源**，才用 `codex plugin marketplace upgrade vibe-research-local` 拉取远端快照，然后执行 `codex plugin add vibe-research@vibe-research-local`。仅登记 marketplace 不会创建 `vr-workbench` 或安装短命令别名；初次安装推荐使用完整安装器。
 
 卸载：
 
@@ -102,3 +129,5 @@ codex plugin marketplace remove vibe-research-local
 ```
 
 卸载插件不会删除使用者另行选择的研究工作区。
+
+安装机制参考 [OpenAI 官方插件文档](https://developers.openai.com/plugins/build/plugins#add-a-marketplace-from-the-cli)。实际可用命令以本机 `codex plugin --help` 为准。

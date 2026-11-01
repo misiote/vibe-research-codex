@@ -5,6 +5,8 @@ vr_share_root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
 if command -v codex >/dev/null 2>&1; then
   vr_codex_bin=$(command -v codex)
+elif [ -x "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex" ]; then
+  vr_codex_bin="/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
 elif [ -x "/Applications/ChatGPT.app/Contents/Resources/codex" ]; then
   vr_codex_bin="/Applications/ChatGPT.app/Contents/Resources/codex"
 else
@@ -33,7 +35,10 @@ fi
 
 echo "Vibe Research 已作为 Codex 插件安装并启用。"
 echo "下一步："
-echo "1. 用 Command-Q 完全退出 ChatGPT/Codex，再重新打开。"
+case "$(uname -s)" in
+  Darwin) echo "1. 用 Command-Q 完全退出 ChatGPT/Codex，再重新打开。" ;;
+  *) echo "1. 完全退出并重新打开 Codex。" ;;
+esac
 echo "2. 在插件目录的 Vibe Research 来源中确认插件显示为已安装。"
 echo "3. 把 $vr_workspace 添加为 Codex 本地项目，并在该项目中新建聊天。"
 echo "4. 点击插件默认提示，或发送“打开 Vibe Research 工作台”。"
