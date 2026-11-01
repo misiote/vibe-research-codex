@@ -12,7 +12,7 @@ if (-not $PythonExe) { throw "Python 3.9+ is required. Install Python, then retr
 $Bootstrap = [IO.Path]::GetTempFileName()
 try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -UseBasicParsing -Uri "https://raw.githubusercontent.com/misiote/vibe-research-codex/main/scripts/bootstrap.py" -OutFile $Bootstrap
+    Invoke-WebRequest -UseBasicParsing -TimeoutSec 60 -Uri "https://raw.githubusercontent.com/misiote/vibe-research-codex/main/scripts/bootstrap.py" -OutFile $Bootstrap
     & $PythonExe @PythonArgs -X utf8 $Bootstrap @args
     if ($LASTEXITCODE -ne 0) { throw "Vibe Research installation did not complete. See the error above." }
 } finally {

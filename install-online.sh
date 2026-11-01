@@ -13,9 +13,9 @@ fi
 vr_bootstrap=$(mktemp "${TMPDIR:-/tmp}/vibe-research-install.XXXXXXXX")
 trap 'rm -f "$vr_bootstrap"' EXIT HUP INT TERM
 if command -v curl >/dev/null 2>&1; then
-  curl --fail --silent --show-error --location https://raw.githubusercontent.com/misiote/vibe-research-codex/main/scripts/bootstrap.py --output "$vr_bootstrap"
+  curl --fail --silent --show-error --location --connect-timeout 15 --max-time 60 https://raw.githubusercontent.com/misiote/vibe-research-codex/main/scripts/bootstrap.py --output "$vr_bootstrap"
 elif command -v wget >/dev/null 2>&1; then
-  wget -q https://raw.githubusercontent.com/misiote/vibe-research-codex/main/scripts/bootstrap.py -O "$vr_bootstrap"
+  wget -q --timeout=60 --tries=1 https://raw.githubusercontent.com/misiote/vibe-research-codex/main/scripts/bootstrap.py -O "$vr_bootstrap"
 else
   echo "请安装 curl 或 wget，或使用 README 的手动下载方式。" >&2
   exit 1
