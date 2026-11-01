@@ -1,5 +1,9 @@
 # Vibe Research for Codex
 
+> [!WARNING]
+> **平台可用性：目前仅 macOS 已完成实际安装与运行验证。**
+> **Windows 和 Linux 尚未完成实际验证，可能无法正常安装或运行，暂不保证可用。** 下方保留的安装脚本与说明仅供尝试；构建或自动化检查通过不代表对应平台已验证可用。
+
 在 Codex 中组织研究构想、文献证据、开发实验与版本历史。Vibe Research 提供本地工作台、悬浮研究伴侣和研究技能；研究数据保存在你选择的工作区，与插件代码分开。
 
 ## 安装与首次启动
@@ -8,13 +12,13 @@
 
 预先安装 Codex 与 Python 3.9+，然后在终端运行。无需 Git、手动解压或复制插件文件。
 
-**macOS / Linux：**
+**macOS（已验证）；Linux（未验证，可能不可用）：**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.sh -o /tmp/vibe-research-install.sh && sh /tmp/vibe-research-install.sh
 ```
 
-**Windows PowerShell：**
+**Windows PowerShell（未验证，可能不可用）：**
 
 ```powershell
 Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.ps1 -OutFile "$env:TEMP\vibe-research-install.ps1"; if ($?) { powershell -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\vibe-research-install.ps1" }
@@ -37,11 +41,11 @@ cd vibe-research-codex
 
 也可在 GitHub 的 **Code → Download ZIP** 下载并完整解压，保留隐藏的 `.agents/` 目录。Release 附件对应其标签版本，可能早于当前 `main`；请核对版本后下载。
 
-| 平台 | 在仓库根目录安装 | 悬浮研究伴侣依赖 |
-| --- | --- | --- |
-| macOS | 双击 `安装Vibe Research.command`，或 `sh install.sh` | 首次构建需要 Xcode Command Line Tools 的 `clang` |
-| Windows | 双击 `install-windows.cmd` | WebView2；源码无预编译伴侣时需要 .NET 8 SDK |
-| Linux | `sh install.sh` | 图形桌面、GTK 3、Cairo、WebKitGTK 4.1；也可使用浏览器工作台 |
+| 平台 | 可用性 | 在仓库根目录安装 | 悬浮研究伴侣依赖 |
+| --- | --- | --- | --- |
+| macOS | 已完成实际验证 | 双击 `安装Vibe Research.command`，或 `sh install.sh` | 首次构建需要 Xcode Command Line Tools 的 `clang` |
+| Windows | **未验证，暂不保证可用** | 双击 `install-windows.cmd` | WebView2；源码无预编译伴侣时需要 .NET 8 SDK |
+| Linux | **未验证，暂不保证可用** | `sh install.sh` | 图形桌面、GTK 3、Cairo、WebKitGTK 4.1；也可使用浏览器工作台 |
 
 安装器登记本地 marketplace，安装并启用 `vibe-research@vibe-research-local`，创建默认工作区 `~/VibeResearch` 与终端入口 `vr-workbench`。安装前可用环境变量 `VIBE_RESEARCH_WORKSPACE` 指定工作区。请保留源码安装目录在固定位置，启动器会优先使用它。
 
