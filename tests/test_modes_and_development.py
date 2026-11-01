@@ -77,7 +77,7 @@ class Development(unittest.TestCase):
         self.assertEqual(before,self.store.revision());self.assertIsNone(d['worker'])
         with self.assertRaises(ResearchError):history.search_plan('topic','local')
     def make_link(self):
-        return self.apply(lambda:engineering.link(self.store,{'repo':str(self.repo),'tools':{'github':'https://github.com/org/repo','wandb':'https://wandb.ai/team/project','mlflow':'http://127.0.0.1:5000'},'ssh':{'host':'gpu-box','repo':'/home/user/research'},'mlflow_experiments':['0'],'metric_keys':['loss']}))
+        return self.apply(lambda:engineering.link(self.store,{'repo':str(self.repo),'tools':{'github':'https://github.com/org/repo','wandb':'https://wandb.ai/team/project','mlflow':'http://127.0.0.1:5000'},'ssh':{'host':'gpu-box','repo':'/srv/research/research'},'mlflow_experiments':['0'],'metric_keys':['loss']}))
     def test_independent_adapters_keep_success_when_another_fails(self):
         link=self.make_link();commit=link['commit']
         with patch.dict(devtools.ADAPTERS,{'github':lambda _: {'commits':[{'commit':commit}]},'wandb':lambda _: (_ for _ in ()).throw(RuntimeError('secret-token')),'mlflow':lambda _:{'runs':[{'id':'run-1','commit':commit,'state':'RUNNING'}]},'ssh':lambda _:{'commit':commit}}):
@@ -89,12 +89,12 @@ class Development(unittest.TestCase):
             d=self.apply(lambda:engineering.sync(self.store,link['id'],False))
         self.assertEqual(d['observations']['github']['status'],'not_checked')
     def test_remote_only_link_and_ssh_arguments_are_literal(self):
-        result=self.apply(lambda:engineering.link(self.store,{'ssh':{'host':'gpu-box','repo':"/home/user/a; echo nope"}}))
+        result=self.apply(lambda:engineering.link(self.store,{'ssh':{'host':'gpu-box','repo':"/srv/research/a; echo nope"}}))
         self.assertIsNone(result['repo']);self.assertEqual(result['ssh']['host'],'gpu-box')
         with patch.object(devtools,'command',return_value='a'*40+'\n M file.py\n') as call:
             out=devtools.ssh(result)
         args=call.call_args[0][0];self.assertIn('BatchMode=yes',args);self.assertIn('StrictHostKeyChecking=yes',args)
-        self.assertIn("'/home/user/a; echo nope'",args[-1]);self.assertEqual(out['changed_files'],1)
+        self.assertIn("'/srv/research/a; echo nope'",args[-1]);self.assertEqual(out['changed_files'],1)
     def test_link_rejects_credentials_bad_hosts_and_ssh_options(self):
         for spec in [{'repo':str(self.repo),'tools':{'wandb':'https://evil.example/team/project'}},{'ssh':{'host':'-oProxyCommand=bad','repo':'/tmp/x'}},{'repo':str(self.repo),'tools':{'mlflow':'https://user:secret@example.org'}},{'repo':str(self.repo),'api_key':'secret'}]:
             before=self.store.revision()
