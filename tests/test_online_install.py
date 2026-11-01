@@ -136,10 +136,9 @@ class OnlineInstall(unittest.TestCase):
     def test_partial_bootstrap_download_is_never_executed(self):
         tools = self.root / 'tools'
         tools.mkdir()
-        (tools / 'python3').symlink_to(sys.executable)
-        curl = tools / 'curl'
-        curl.write_text('#!/bin/sh\nfor output do :; done\nprintf "raise RuntimeError(\'PARTIAL_RESPONSE_EXECUTED\')" > "$output"\nexit 22\n')
-        curl.chmod(0o755)
+        python = tools / 'python3'
+        python.write_text('#!' + sys.executable + '\nimport sys,os\nif len(sys.argv)>3:\n open(sys.argv[-1],"w").write(' + repr('raise RuntimeError("PARTIAL_RESPONSE_EXECUTED")') + ');raise SystemExit(22)\nos.execv(' + repr(sys.executable) + ', [' + repr(sys.executable) + ']+sys.argv[1:])\n')
+        python.chmod(0o755)
         result = subprocess.run(['sh', str(ROOT / 'install-online.sh')], env=dict(os.environ, PATH=str(tools) + os.pathsep + os.environ['PATH']), capture_output=True, text=True)
         self.assertEqual(result.returncode, 22)
         self.assertNotIn('PARTIAL_RESPONSE_EXECUTED', result.stderr)
