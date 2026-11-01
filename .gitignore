@@ -10,3 +10,40 @@ plugins/vibe-research/scripts/companion/windows/bin/
 plugins/vibe-research/scripts/companion/windows/obj/
 *.zip
 *.zip.sha256
+
+# User research and local acceptance artifacts never belong in the public source.
+.research/
+research-backups/
+/outputs/
+/validation/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+
+# Local credentials and host configuration.
+.env
+.env.*
+!.env.example
+.codex/
+.aws/
+.ssh/
+credentials.json
+credentials.*.json
+*.key
+*.pem
+
+# Dependency caches and generated build products.
+.venv/
+venv/
+node_modules/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/

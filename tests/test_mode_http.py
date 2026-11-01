@@ -30,6 +30,13 @@ class ModeHTTP(unittest.TestCase):
                 with self.subTest(path=prefix+path),self.op.open(self.base+prefix+path) as response:
                     self.assertEqual(response.status,200)
                     self.assertIn(expected,response.read().decode())
+    def test_giver_project_browser_replaces_workspace_tree_entry(self):
+        with self.op.open(self.base+'/giver') as response:
+            page=response.read().decode()
+            self.assertIn('id="project-search"',page);self.assertIn('id="family-workspace" hidden',page)
+            self.assertIn('id="version-search"',page);self.assertNotIn('id="branch-select"',page)
+        for resource in ['/static/giver_view.js','/static/giver_browser.css']:
+            with self.op.open(self.base+resource) as response:self.assertEqual(response.status,200)
     def test_project_navigation_resources_and_both_mode_data_scopes(self):
         initial=self.post('/api/giver',{'action':'init','spec':{'title':'Brainstorm navigation fixture','mode':'brainstorming','branch':'ideas/navigation'}})
         for project,title in [(initial['project'],'Brainstorm navigation fixture'),(self.project['id'],'Topic')]:

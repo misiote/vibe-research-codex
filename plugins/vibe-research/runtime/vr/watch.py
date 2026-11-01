@@ -61,7 +61,7 @@ def server(root, port, registry=None):
             self.project_prefix = ''
             selected_root = root
             try:
-                if route.startswith('/static/') and (sys.platform=='win32' or route.endswith('.css') or route in ('/static/mode_bridge.js','/static/actions.js','/static/giver.js','/static/project_nav.js')):
+                if route.startswith('/static/') and (sys.platform=='win32' or route.endswith('.css') or route in ('/static/mode_bridge.js','/static/actions.js','/static/giver.js','/static/giver_view.js','/static/project_nav.js')):
                     directory=Path(__file__).parent/'static'
                     asset=(directory/route[len('/static/'):]).resolve()
                     if not asset.is_relative_to(directory.resolve()) or not asset.is_file():
