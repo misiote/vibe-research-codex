@@ -14,7 +14,9 @@ else
   exit 1
 fi
 
-if command -v python3 >/dev/null 2>&1; then
+if [ -n "${VIBE_RESEARCH_PYTHON:-}" ]; then
+  vr_python=$VIBE_RESEARCH_PYTHON
+elif command -v python3 >/dev/null 2>&1; then
   vr_python=python3
 elif command -v python >/dev/null 2>&1; then
   vr_python=python

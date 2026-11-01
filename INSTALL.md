@@ -1,5 +1,38 @@
 # Vibe Research 跨平台安装
 
+## 在线安装（推荐）
+
+先安装支持 `codex plugin` 的 Codex 和 Python 3.9+。macOS / Linux 运行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.sh -o /tmp/vibe-research-install.sh && sh /tmp/vibe-research-install.sh
+```
+
+Windows PowerShell 运行：
+
+```powershell
+Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.ps1 -OutFile "$env:TEMP\vibe-research-install.ps1"; if ($?) { powershell -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\vibe-research-install.ps1" }
+```
+
+这会下载完整源码到用户目录，调用随包安装器，再注册五个显式短入口；不需要 Git。结束后重启 Codex，将显示的研究工作区添加为本地项目。默认源码位置为 `~/.local/share/vibe-research/installations/<提交>`，Windows 为 `%LOCALAPPDATA%\VibeResearch\installations\<提交>`。工作区默认 `~/VibeResearch`，与源码目录分开。
+
+安装器先检查 Codex / Python，再从 GitHub API 解析提交，按提交下载 Codeload ZIP，检查解压路径和插件 SHA-256 清单。清单用于检查文件完整性，信任来源仍是本仓库及 GitHub HTTPS。需要能访问 `raw.githubusercontent.com`、`api.github.com` 和 `codeload.github.com`；下载失败或 GitHub API 限流时会停止并显示错误，可稍后重试或手动下载。
+
+下载后的脚本可附加选项：
+
+```bash
+sh /tmp/vibe-research-install.sh --workspace ~/Research --no-aliases
+sh /tmp/vibe-research-install.sh --ref main --install-dir ~/.local/share/vibe-research/installations
+```
+
+Windows 在 `-File` 后的脚本路径后追加同样选项。`--ref` 可指定分支、标签或提交；`--no-aliases` 跳过用户级短命令注册。在线安装自动使用找到的 Python；手动安装可通过 `VIBE_RESEARCH_PYTHON` 指定解释器。
+
+若已通过本仓库手动安装，在线安装会核对原来源仅包含 Vibe Research，再更新其登记位置；不删除原源码和研究数据。遇到同名混合来源时会停止并提示处理，不移除其他插件来源。
+
+再次执行在线命令会安装当前版本；保留旧源码和研究工作区，并在安装根目录写入 `installed.json` 记录本次提交与路径。安装失败时不要删除研究工作区；按错误提示补齐依赖后重试。已有源码被修改时不会覆盖，可用新的 `--install-dir`。若安装进程被强制终止，确认进程已退出后再清理报错指定的 `.install-lock` 目录。
+
+系统依赖仍按下面的平台说明准备。安装器不会自动获取管理员权限、安装 Python / Codex、处理机构授权或重启应用。`vr-workbench` 的 bin 目录不在 PATH 时，按安装输出加入 PATH；也可直接调用输出的完整命令路径。
+
 ## 获取当前版本
 
 推荐克隆 `main`，或在 GitHub 的 Code 菜单选择 Download ZIP 后完整解压：
@@ -109,6 +142,8 @@ Windows 将 `python3` 换成 `py -3`。这会注册 `/lightning`、`/brainstormi
 项目 bundle 包含研究图、工作历史、检索队列和已登记附件，不包含外部代码仓库、数据库凭据或 Codex 任务。恢复后先运行 `doctor` 与连接检查，再继续工作。
 
 ## 更新与卸载
+
+在线安装用户直接重跑在线安装命令即可；也可用 `--ref` 安装指定版本。更新前建议备份研究工作区。
 
 通过本仓库安装器安装的是**本地目录来源**。先备份研究工作区，在原安装目录更新后重跑安装器：
 

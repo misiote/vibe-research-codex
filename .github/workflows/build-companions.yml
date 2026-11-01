@@ -10,6 +10,11 @@ on:
       - "plugins/vibe-research/scripts/install_cli.py"
       - "tests/test_platform_compatibility.py"
       - "install.ps1"
+      - "install.sh"
+      - "install-online.sh"
+      - "install-online.ps1"
+      - "scripts/bootstrap.py"
+      - "tests/test_online_install.py"
       - ".gitattributes"
       - ".github/workflows/build-companions.yml"
   push:
@@ -68,7 +73,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - name: Check platform compatibility without network or credentials
-        run: ${{ matrix.python }} -X utf8 -m unittest discover -s tests -p test_platform_compatibility.py -v
+        run: |
+          ${{ matrix.python }} -X utf8 -m unittest discover -s tests -p test_platform_compatibility.py -v
+          ${{ matrix.python }} -X utf8 -m unittest discover -s tests -p test_online_install.py -v
 
   macos-check:
     needs: release-audit

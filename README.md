@@ -4,6 +4,30 @@
 
 ## 安装与首次启动
 
+### 一条命令安装（推荐）
+
+预先安装 Codex 与 Python 3.9+，然后在终端运行。无需 Git、手动解压或复制插件文件。
+
+**macOS / Linux：**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.sh -o /tmp/vibe-research-install.sh && sh /tmp/vibe-research-install.sh
+```
+
+**Windows PowerShell：**
+
+```powershell
+Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.ps1 -OutFile "$env:TEMP\vibe-research-install.ps1"; if ($?) { powershell -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\vibe-research-install.ps1" }
+```
+
+安装器从 GitHub 将 `main` 解析为确定的提交，下载该版本、校验工具文件，安装 Codex 插件、工作台命令与五个短入口。安装结束会显示研究工作区位置；完全重启 Codex，把该目录添加为本地项目，即可开始使用。无需管理员权限；不会自动安装系统依赖或重启 App。
+
+默认源码保存在 `~/.local/share/vibe-research/installations`，Windows 为 `%LOCALAPPDATA%\VibeResearch\installations`；研究数据默认在 `~/VibeResearch`。再次运行同一命令可更新，旧源码与研究数据保留。短入口有同名冲突时保留原技能，并提示使用插件技能菜单。
+
+网络无法访问 GitHub、Raw 或 Codeload 时，可使用下面的手动下载方式。更多选项见 [在线安装说明](INSTALL.md#在线安装推荐)。
+
+### 手动下载安装
+
 需要 Python 3.9+，以及支持 `codex plugin` 命令的 Codex。获取当前源码：
 
 ```bash
