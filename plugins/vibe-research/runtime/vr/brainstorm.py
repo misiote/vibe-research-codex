@@ -9,6 +9,7 @@ from . import filelock
 from .store import ResearchError, atomic, dumps, now
 
 MODULES={
+    'notes':{'title':'研究笔记','skill':'vibe-research'},
     'landscape':{'title':'研究视野','skill':'research-landscape-expert'},
     'history':{'title':'研究脉络','skill':'research-history-expert'},
     'directions':{'title':'方向研判','skill':'research-direction-expert'},
@@ -129,9 +130,14 @@ def packet(workspace, ident, module):
             'instructions':'围绕主题与本次需求处理选定模块。其他模块为可选输入；引用时核对来源并明确 uses 版本，不要求先完成其他模块。更新仅写当前模块；不把方向判断自动写成工程承诺或科学证据。'}
 
 
+def primary_text(board):
+    return next((board['modules'].get(k,{}).get('content') for k in ('notes','directions','proposal') if board['modules'].get(k,{}).get('content')), board['context'])
+
+
 def handoff(workspace, ident):
     board=show(workspace,ident)
-    return {'space':board['id'],'topic':board['topic'],'context':board['context'],
+    return {'space':board['id'],'topic':board['topic'],'context':board['context'],'primary_text':primary_text(board),
+            'notes':board['modules'].get('notes'),
             'directions':board['modules'].get('directions'),
             'proposal':board['modules'].get('proposal'),
             'instructions':'将用户选定方向转成 Engineering 工作包的 question/acceptance/protocol/stop_rule；保留来源和版本。只生成交接材料，不创建或切换正式项目，不自动运行。'}

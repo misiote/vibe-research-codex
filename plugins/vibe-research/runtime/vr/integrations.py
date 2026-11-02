@@ -5,13 +5,11 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
-import sqlite3
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from .store import ResearchError, Store, now, atomic, dumps
+from .store import ResearchError, now, atomic, dumps
 from .literature import Router, PROVIDERS, ALL_SOURCES, APIError, AuthenticationRequired, search_page
 from . import request_gate
 
@@ -62,28 +60,24 @@ def preflight(providers):
     providers=list(dict.fromkeys(providers))
     if not providers or set(providers)-set(ALL_SOURCES):raise ResearchError('请选择有效来源进行预检')
     rows=[]
-    with tempfile.TemporaryDirectory(prefix='vr-preflight-') as directory:
-        store=Store.init(Path(directory)/'probe','onboarding connection probe')
+    router=Router(fresh=True,defer=True)
+    for provider in providers:
+        query='10.1038/nature12373' if provider=='unpaywall' else 'machine learning'
         try:
-            router=Router(store,fresh=True,defer=True)
-            for provider in providers:
-                query='10.1038/nature12373' if provider=='unpaywall' else 'machine learning'
-                try:
-                    page=search_page(router,query,provider,size=1)
-                    diagnostic=page.get('diagnostic') or {}
-                    rows.append({'provider':provider,'status':'passed','message':'实际 API 查询通过；未导入任何文献。','diagnostic':diagnostic})
-                except AuthenticationRequired as exc:
-                    rows.append({'provider':provider,'status':'needs_auth','message':str(exc)})
-                except request_gate.Deferred as exc:
-                    rows.append({'provider':provider,'status':'waiting','message':str(exc),'next_retry':exc.until})
-                except APIError as exc:
-                    status='waiting' if exc.diagnostic.get('http')==429 or exc.diagnostic.get('http',0)>=500 else 'needs_auth' if exc.diagnostic.get('http') in (401,403) else 'blocked'
-                    rows.append({'provider':provider,'status':status,'message':str(exc),'diagnostic':exc.diagnostic})
-                except ResearchError as exc:
-                    rows.append({'provider':provider,'status':'blocked','message':str(exc)})
-                except (OSError,sqlite3.Error) as exc:
-                    rows.append({'provider':provider,'status':'blocked','message':'本机预检环境不可用：'+type(exc).__name__+'；请检查运行账户及数据目录权限。'})
-        finally:store.db.close()
+            page=search_page(router,query,provider,size=1)
+            diagnostic=page.get('diagnostic') or {}
+            rows.append({'provider':provider,'status':'passed','message':'实际 API 查询通过；未导入任何文献。','diagnostic':diagnostic})
+        except AuthenticationRequired as exc:
+            rows.append({'provider':provider,'status':'needs_auth','message':str(exc)})
+        except request_gate.Deferred as exc:
+            rows.append({'provider':provider,'status':'waiting','message':str(exc),'next_retry':exc.until})
+        except APIError as exc:
+            status='waiting' if exc.diagnostic.get('http')==429 or exc.diagnostic.get('http',0)>=500 else 'needs_auth' if exc.diagnostic.get('http') in (401,403) else 'blocked'
+            rows.append({'provider':provider,'status':status,'message':str(exc),'diagnostic':exc.diagnostic})
+        except ResearchError as exc:
+            rows.append({'provider':provider,'status':'blocked','message':str(exc)})
+        except OSError as exc:
+            rows.append({'provider':provider,'status':'blocked','message':'本机预检环境不可用：'+type(exc).__name__+'；请检查运行账户及数据目录权限。'})
     from .connections import status
     from . import network_access
     return {'checked_at':now(),'providers':rows,'connections':status(),'network_access':network_access.status(),'runtime':runtime_status(),

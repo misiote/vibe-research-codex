@@ -11,25 +11,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
 from .store import Store, ResearchError
-from . import activity, progress, graph, resources, retrieval, access, connections, integrations, runtime_env, network_access
-from .workflows import capabilities
-
-
-def connection_view(store):
-    from .connections import status
-    data = status()
-    data['network_access'] = network_access.status()
-    path = store.root / 'research/integrations.json'
-    try:
-        saved = json.loads(path.read_text(encoding="utf8"))
-        data['checked_at'] = saved.get('generated_at')
-        data['checks'] = [r for r in saved.get('items',[]) if r.get('name') in {'SQLite / 研究图','PDF 精读','openalex','s2','arxiv','crossref','core','huggingface','wos','scopus','unpaywall','Zotero'}]
-    except (OSError,ValueError):
-        data['checks'] = []
-    data['access_checks']=access.view(store.root)
-    data['access_guides']=[{'provider':p,'title':g['title'],'url':'/settings/connections/'+p} for p,g in access.GUIDES.items()]
-    data['runtime']=integrations.runtime_status()
-    return data
+from . import activity, progress, graph, resources, retrieval, access
+from . import workspace_routes, project_routes
 
 
 def state(root):
@@ -40,7 +23,7 @@ def state(root):
         nodes = {n['id']: {'id': n['id'], 'title': n['title'], 'kind':n['kind']} for n in s.rows('nodes')}
         live = activity.snapshot(s.root, nodes)
         return {'question': p['question'], 'revision': p['revision'], 'counts': p['counts'],
-                'nodes': nodes, 'retrieval': retrieval.snapshot(root), 'connections': connection_view(s), 'settings_skills': resources.skill_catalog(), 'capabilities': capabilities(), 'papers': [{**p, 'resources': resources.links(s, s.get(p['id']))} for p in p['papers']], 'branches': p['branches'], **live}
+                'nodes': nodes, 'retrieval': retrieval.snapshot(root), 'papers': [{**p, 'resources': resources.links(s, s.get(p['id']))} for p in p['papers']], 'branches': p['branches'], **live}
     finally:
         s.db.rollback()
         s.db.close()
@@ -61,49 +44,18 @@ def server(root, port, registry=None):
             self.project_prefix = ''
             selected_root = root
             try:
-                if route.startswith('/static/') and (sys.platform=='win32' or route.endswith('.css') or route in ('/static/mode_bridge.js','/static/actions.js','/static/giver.js','/static/giver_view.js','/static/project_nav.js')):
+                if route.startswith('/static/') and (sys.platform=='win32' or route.endswith('.css') or route in ('/static/mode_bridge.js','/static/actions.js','/static/giver.js','/static/giver_view.js','/static/project_nav.js','/static/workspace_ui.js','/static/settings.js')):
                     directory=Path(__file__).parent/'static'
                     asset=(directory/route[len('/static/'):]).resolve()
                     if not asset.is_relative_to(directory.resolve()) or not asset.is_file():
                         return self.reply(404,'text/plain',b'Not found')
                     kind={'.mjs':'application/javascript','.wasm':'application/wasm'}.get(asset.suffix,mimetypes.guess_type(str(asset))[0] or 'application/octet-stream')
                     return self.reply(200,kind,asset.read_bytes())
-                # Workspace help is shared across modes and needs no project identity.
-                if registry and re.fullmatch(r'/settings/skills/[a-z-]+',route):
-                    return self.reply(200,'text/html',resources.skill_page(route.rsplit('/',1)[-1]).encode())
-                if registry and re.fullmatch(r'/settings/connections/[a-z]+',route):
-                    return self.reply(200,'text/html',access.page(route.rsplit('/',1)[-1]).encode())
+                result=workspace_routes.read(route,self.path,registry,csrf_token,sys.platform)
+                if result is not None:
+                    return self.reply(*result)
                 if registry:
                     from . import hub
-                    if route == '/':
-                        body=(Path(__file__).parent/'templates/hub.html').read_bytes()
-                        if sys.platform=='win32':
-                            body=body.replace(b"box.checked=['arxiv','crossref','core']",b"box.checked=['arxiv','crossref','openalex']")
-                        return self.reply(200,'text/html',body)
-                    if route=='/giver':return self.reply(200,'text/html',(Path(__file__).parent/'templates/giver.html').read_bytes())
-                    if route=='/api/giver':
-                        from . import giver
-                        return self.reply(200,'application/json',json.dumps(giver.status(Path(registry).resolve().parent),ensure_ascii=False).encode())
-                    if route == '/api/workspace':
-                        return self.reply(200,'application/json',json.dumps({'registry':str(Path(registry).resolve()),'version':'0.2.0'}).encode())
-                    if route == '/api/session':
-                        return self.reply(200,'application/json',json.dumps({'token':csrf_token}).encode())
-                    if route in ('/lightning', '/lightning/'):
-                        return self.reply(200,'text/html',(Path(__file__).parent/'templates/lightning.html').read_bytes())
-                    if route in ('/brainstorming','/brainstorming/'):
-                        return self.reply(200,'text/html',(Path(__file__).parent/'templates/brainstorming.html').read_bytes())
-                    if route=='/api/brainstorm':
-                        from . import brainstorm
-                        q=parse_qs(urlsplit(self.path).query)
-                        data=brainstorm.show(Path(registry).resolve().parent,q['id'][0]) if q.get('id') else brainstorm.listing(Path(registry).resolve().parent,include_hidden=q.get('include_hidden',['0'])[0]=='1')
-                        return self.reply(200,'application/json',json.dumps(data,ensure_ascii=False).encode())
-                    if route == '/api/lightning':
-                        from . import lightning
-                        return self.reply(200,'application/json',json.dumps(lightning.listing(Path(registry).resolve().parent,parse_qs(urlsplit(self.path).query).get('mode',[None])[0]),ensure_ascii=False).encode())
-                    if route == '/engineering':
-                        return self.reply(200,'text/html',(Path(__file__).parent/'templates/engineering.html').read_bytes())
-                    if route == '/api/projects':
-                        return self.reply(200,'application/json',json.dumps(hub.catalog(registry,include_removed=True),ensure_ascii=False).encode())
                     match=re.match(r'^/p/(p[a-f0-9]{12})(/.*)$',route)
                     if not match: return self.reply(404,'text/plain',b'Unknown project')
                     project=next((p for p in hub.entries(registry) if p['id']==match[1]),None)
@@ -115,39 +67,15 @@ def server(root, port, registry=None):
                     return self.reply(200,'text/html',access.page(route.rsplit('/',1)[-1]).encode())
                 if re.fullmatch(r'/settings/skills/[a-z-]+',route):
                     return self.reply(200,'text/html',resources.skill_page(route.rsplit('/',1)[-1]).encode())
-                if re.fullmatch(r'/retrieval/report/S[a-f0-9]{12}',route):
-                    return self.reply(200,'text/html',retrieval.report(selected_root,route.rsplit('/',1)[-1]).encode())
-                if re.fullmatch(r'/api/retrieval/export/S[a-f0-9]{12}',route):
-                    data=retrieval.snapshot(selected_root,route.rsplit('/',1)[-1],True)
-                    if not data['runs']:raise ResearchError('检索不存在')
-                    return self.reply(200,'application/json',json.dumps(data['runs'][0],ensure_ascii=False).encode())
                 if route == '/engineering':
                     self.project_prefix=''
                     return self.reply(200,'text/html',(Path(__file__).parent/'templates/engineering.html').read_bytes())
                 if route == '/explore':
                     self.project_prefix=''  # This template derives its own project prefix from the URL.
                     return self.reply(200,'text/html',(Path(__file__).parent/'templates/explore.html').read_bytes())
-                if route.startswith('/api/research/'):
-                    from . import history, directions
-                    q=parse_qs(urlsplit(self.path).query)
-                    s=Store(selected_root)
-                    try:
-                        if route == '/api/research/history':
-                            data=history.snapshot(s,q.get('scope',['global'])[0],q.get('focus',[None])[0],q.get('topic',[''])[0],q.get('since',[None])[0],q.get('until',[None])[0],q.get('subtopic',[''])[0],q.get('aliases',[''])[0])
-                        elif route == '/api/research/history/search':
-                            data=retrieval.snapshot(selected_root,q.get('run',[None])[0],True)
-                        elif route == '/api/research/engineering':
-                            from . import engineering
-                            data=engineering.snapshot(s)
-                        elif route == '/api/research/directions':
-                            data={'assessments':[n for n in s.rows('nodes') if n['data'].get('source_type')=='direction_assessment'], 'packet':directions.packet(s)}
-                        else: raise ResearchError('未知研究视图')
-                    finally: s.db.close()
-                    return self.reply(200,'application/json',json.dumps(data,ensure_ascii=False).encode())
-                if route == '/api/history':
-                    q=parse_qs(urlsplit(self.path).query)
-                    data=activity.history(selected_root,int(q.get('limit',['50'])[0]),int(q.get('offset',['0'])[0]),q.get('since',[None])[0],q.get('until',[None])[0])
-                    return self.reply(200,'application/json',json.dumps(data,ensure_ascii=False).encode())
+                result=project_routes.read(route,self.path,selected_root)
+                if result is not None:
+                    return self.reply(*result)
                 if route == '/api/state':
                     return self.reply(200, 'application/json', json.dumps(state(selected_root), ensure_ascii=False).encode())
                 if route == '/':
@@ -213,21 +141,9 @@ def server(root, port, registry=None):
                 data=json.loads(self.rfile.read(length))
                 if not isinstance(data,dict):raise ResearchError('请求格式无效')
                 action=data.get('action')
-                if self.path=='/api/preflight':
-                    if set(data)!={'providers'} or not isinstance(data['providers'],list) or not all(isinstance(p,str) and p in retrieval.literature.ALL_SOURCES for p in data['providers']):raise ResearchError('来源无效')
-                    return self.reply(200,'application/json',json.dumps(integrations.preflight(data['providers']),ensure_ascii=False).encode())
-                if self.path=='/api/configure':
-                    if set(data)!={'provider','value'} or data.get('provider') not in connections.PROVIDERS or not isinstance(data.get('value'),str) or not 0<len(data['value'])<=4096:raise ResearchError('凭据格式无效')
-                    connections.save(data['provider'],data['value'],connections.default_backend())
-                    return self.reply(200,'application/json',json.dumps({'saved':True,'backend':connections.backend_info(),'note':'已安全保存到本机；请重新运行实际连接预检。'},ensure_ascii=False).encode())
-                if self.path=='/api/network-profile':
-                    fields={'action','provider','institution_id','institution_name','portal_url','method','declared_network'}
-                    if set(data)!=fields or data.get('action')!='configure' or not all(isinstance(data.get(k),str) for k in fields):raise ResearchError('机构网络配置格式无效')
-                    result=network_access.configure(data['provider'],data['institution_id'],data['institution_name'],data['portal_url'],data['method'],data['declared_network'])
-                    return self.reply(200,'application/json',json.dumps(result,ensure_ascii=False).encode())
-                if self.path=='/api/runtime':
-                    if data!={'action':'prepare_pdf'}:raise ResearchError('运行时操作无效')
-                    return self.reply(200,'application/json',json.dumps(runtime_env.prepare(),ensure_ascii=False).encode())
+                result=workspace_routes.write(self.path,data,registry)
+                if result is not None:
+                    return self.reply(*result)
                 if self.path in ('/api/lightning','/api/brainstorm','/api/bridge','/api/giver') or research_route:
                     from . import hub
                     base=[sys.executable,str(Path(__file__).resolve().parents[1]/'bin/vr')]

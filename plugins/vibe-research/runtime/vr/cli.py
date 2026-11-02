@@ -68,6 +68,9 @@ def parser():
     command('relocate',[arg('id'),arg('path'),arg('--registry',default='projects.json')],hub)
     command('create',[arg('--registry',default='projects.json'),arg('--name',required=True),arg('--question',required=True),arg('--provider',action='append',required=True,choices=literature.ALL_SOURCES),arg('--request-id',required=True)],hub)
     command('giver',[arg('--workspace',required=True),arg('--input'),arg('arguments',nargs=argparse.REMAINDER)])
+    settings=group('settings')
+    command('status',[arg('--workspace',required=True)],settings)
+    command('check',[arg('--workspace',required=True),arg('--provider',action='append',required=True,choices=literature.ALL_SOURCES)],settings)
     workflow=group('workflow')
     for op in ('assess','record'):command(op,[arg('--workspace',required=True),arg('--input',required=True)],workflow)
     command('status',[arg('--workspace',required=True)],workflow)
@@ -86,7 +89,7 @@ def parser():
         if op in ('start','update'): opts+=[arg('--input')]
         if op=='start': opts+=[arg('--topic'),arg('--context',default='')]
         if op=='list': opts+=[arg('--include-hidden',action='store_true')]
-        if op=='packet': opts+=[arg('--module',required=True,choices=('landscape','history','directions','proposal','progress'))]
+        if op=='packet': opts+=[arg('--module',required=True,choices=('notes','landscape','history','directions','proposal','progress'))]
         command(op,opts,brainstorm)
     engineering = group('engineering')
     command('show',parent=engineering)
@@ -202,6 +205,9 @@ def safe_render(s):
 
 def run(a):
     root = root_path(a.project)
+    if a.cmd=='settings':
+        from . import workspace_config
+        return workspace_config.snapshot(a.workspace) if a.op=='status' else workspace_config.check(a.workspace,a.provider)
     if a.cmd=='giver':
         from . import giver
         return giver.execute(a.workspace,**load(a.input)) if a.input else giver.command(a.workspace,a.arguments)
@@ -515,7 +521,7 @@ def run(a):
 def main(argv=None):
     args = parser().parse_args(argv)
     def record(result=None, failed=False):
-        if args.cmd in ('lightning','mode','brainstorm','bridge','maintenance','giver','workflow') or (args.cmd == 'reading' and args.op == 'plan'): return
+        if args.cmd in ('lightning','mode','brainstorm','bridge','maintenance','giver','workflow','settings') or (args.cmd == 'reading' and args.op == 'plan'): return
         from .activity import operation
         try:
             operation(root_path(args.project), args, result, failed)

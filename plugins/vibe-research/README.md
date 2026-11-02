@@ -1,4 +1,4 @@
-# Vibe Research 0.11.2
+# Vibe Research 0.12.1
 
 在 Codex 中组织研究构想、文献证据、开发实验与版本历史。完整安装与使用指南见 [仓库 README](https://github.com/misiote/vibe-research-codex#readme)，平台依赖与更新见 [INSTALL.md](https://github.com/misiote/vibe-research-codex/blob/main/INSTALL.md)。
 
@@ -9,7 +9,7 @@
 | 模式 | 工作方式 |
 | --- | --- |
 | Lightning | 无需主题的单次探索与创作，本机草稿不登记研究项目 |
-| Brainstorming | 独立主题项目，连接研究版图、历史、方向、方案与阶段材料 |
+| Brainstorming | 独立主题项目，以研究笔记连接历史、方向与研究成果 |
 | Engineering | 独立实施项目，连接代码、开发环境、工作包与实验记录 |
 
 在源码仓库运行 `python3 plugins/vibe-research/scripts/install_modes.py --install` 可注册 `/lightning`、`/brainstorming`、`/engineering`、`/giver`、`/vrpet` 五个显式 skill 别名。若当前目录就是本插件目录，使用 `python3 scripts/install_modes.py --install`。Windows 将 `python3` 换为 `py -3`。重新载入技能菜单或新建聊天后选择入口；不会覆盖同名的其他技能。
@@ -24,6 +24,10 @@
 - Brainstorming 与 Engineering 双向转化生成新的独立项目和 giver 分支，保留来源项目。
 
 工作台负责组织与展示，分析和生成由 Codex agent 执行。选择阅读深度不等于完成阅读；没有全文不能声称全文精读。Slides 文件生成取决于宿主可用的演示文稿工具。机构数据库需要本人授权，登录、验证码和密钥配置由本人在官方页面或本机终端完成。
+
+## 全局设置
+
+工作台首页的齿轮入口管理数据库与全文、显示和研究能力。项目开始时读取本机配置与最近检查结果，遇到缺少授权或最近不可用的来源会询问是否补充，并提供逐项引导。可选择稍后；联网检查单独触发，不把未检测来源标记为可用。
 
 ## giver 与管理流程
 

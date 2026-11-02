@@ -16,6 +16,8 @@ on:
       - "scripts/bootstrap.py"
       - "tests/test_online_install.py"
       - "tests/test_clean_macos.py"
+      - "tests/test_workspace_settings.py"
+      - "tests/test_transport_independence.py"
       - "scripts/build-macos-companion.sh"
       - "scripts/check-clean-macos.sh"
       - ".gitattributes"
@@ -80,6 +82,8 @@ jobs:
           ${{ matrix.python }} -X utf8 -m unittest discover -s tests -p test_platform_compatibility.py -v
           ${{ matrix.python }} -X utf8 -m unittest discover -s tests -p test_online_install.py -v
           ${{ matrix.python }} -X utf8 -m unittest discover -s tests -p test_clean_macos.py -v
+          ${{ matrix.python }} -X utf8 -m unittest discover -s tests -p test_workspace_settings.py -v
+          ${{ matrix.python }} -X utf8 -m unittest discover -s tests -p test_transport_independence.py -v
 
   macos-check:
     needs: release-audit

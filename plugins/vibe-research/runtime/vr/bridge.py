@@ -47,7 +47,7 @@ def preview(workspace, spec):
         board=brainstorm.show(workspace,spec.get('board'))
         if spec.get('expected_updated_at') and spec['expected_updated_at']!=board['updated_at']:raise ResearchError('来源主题已变化，请重新预览')
         if not board.get('project'):raise ResearchError('来源主题缺少独立项目登记')
-        idea=spec.get('idea') or board['modules'].get('directions',{}).get('content') or board['modules'].get('proposal',{}).get('content') or board['context']
+        idea=spec.get('idea') or brainstorm.primary_text(board)
         if not isinstance(idea,str) or not idea.strip():raise ResearchError('请先形成构想或填写要落实的想法')
         if spec.get('environment'):engineering.environment(spec['environment'])
         return {'direction':'promote','topic':board['topic'],'source':board,'idea':idea,'note':'保存分叉点，创建独立 Engineering 项目和 giver 分支；原 Brainstorming 项目保留。'}

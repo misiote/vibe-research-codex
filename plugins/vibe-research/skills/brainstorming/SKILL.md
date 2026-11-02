@@ -14,7 +14,7 @@ macOS 使用安装器记录的解释器：读取 `~/.config/vibe-research/launch
 
 先以研究主题选择空间：`brainstorm list --workspace`；已有空间用 `mode enter brainstorming --board B编号`，新主题可用 `mode enter brainstorming --topic 主题`（同样传 workspace/session）。主题从用户需求中理解，必要时只问一句；不把完整需求机械当主题，不创建空白草稿。
 
-模块为 landscape/history/directions/proposal/progress；用 `brainstorm packet B编号 --module ... --workspace ...` 读取任务与对应技能。它们各自维护内容、来源和版本，按本次需求选择，不要求固定流程。更新 `brainstorm update --input JSON` 只写当前模块，uses 显式记录参考模块的版本；输入变化时检查 needs_review 后再沿用结论。方案材料用 research-admin-expert。需要落地时 `brainstorm handoff` 产生交接材料，再按用户选择进入 Engineering。Brainstorming 不使用 Lightning 草稿箱，也不擅自登记正式工程项目。
+以用户问题和已有研究材料开展讨论，默认把成果保存为 `notes` 研究笔记，不让用户先填写多个模块。研究历史与方向决策是 Brainstorming 内的独立视图，继续通过各自的研究 CLI 保存有来源的记录；也可根据需求调用阅读、版图、方案或写作技能。旧 landscape/history/directions/proposal/progress 记录保留为兼容内容，不要求依次完成。通过 `brainstorm packet B编号 --module notes --workspace ...` 读取空间，按需用 `brainstorm update --input JSON` 更新笔记，实际引用时记录 sources/uses 与版本。落地方案用 `brainstorm handoff` 产生交接材料，再按用户选择进入 Engineering；不使用 Lightning 草稿箱，不因切换视图创建或转化项目。
 
 图形桌面仅用 scripts/companion.py --workspace 确保研究伴侣存在，不主动展开。若当前对话仅切换模式，简短报告选定模式；有需求则继续完成。
 
@@ -29,3 +29,8 @@ Brainstorming 与 Engineering 均为独立登记项目。跨模式转化用 give
 ## 阶段管理
 
 恢复项目、保存实质里程碑或目标改变时，主 agent 读取 [项目与分支管理流](../vibe-research/references/management-flow.md)，用 `vr workflow assess` 评估是否建议转换、派生、切换或保存版本；用 `workflow record` 保留用户选择与执行回执。用户已明确授权时直接执行，同一目标不重复询问；一次性报告不默认派生项目。普通问答和界面维护不启动此流程。
+
+
+## 项目开始前的全局配置检查
+
+每次开始或恢复项目，先运行 `vr settings status --workspace <工作区>` 检查本机数据库配置与最近连接结果。`unverified` 只表示尚未联网验证，不能说成已可用；若有 `needs_auth`、`blocked` 或 `waiting`，询问用户是否现在补充配置，也允许使用其他来源继续。用户同意后进入统一工作台 `/settings?setup=1` 的全局配置引导，按对应数据库说明完成本机保存与验证；不让用户在聊天粘贴密钥。用户本次已选择稍后时，同一项目与配置状态下不重复询问。新鲜联网验证只在用户确认或明确要求检索所需来源时，通过 `vr settings check --workspace <工作区> --provider <来源>` 运行。设置不是项目模块，不写入研究图、研究分支或项目状态。

@@ -77,7 +77,12 @@ class AuthenticationRequired(ResearchError):
 
 
 class Router:
-    def __init__(self, store, offline=False, daily_limit=50, fresh=False, defer=False):
+    """Provider transport, optionally backed by a project cache and usage ledger.
+
+    Store-free clients still use the shared request gate and daily budgets.
+    They neither read cached responses nor persist provider payloads.
+    """
+    def __init__(self, store=None, offline=False, daily_limit=50, fresh=False, defer=False):
         self.store, self.offline, self.fresh = store, offline, fresh
         self.defer = defer
         if not 1 <= daily_limit <= 50:
@@ -93,6 +98,8 @@ class Router:
             if self.defer or delay > 20: raise
             time.sleep(delay)
             request_gate.admit(provider, self.daily_limit)
+        if self.store is None:
+            return
         db = self.store.db
         day = datetime.now(timezone.utc).date().isoformat()
         db.execute("BEGIN IMMEDIATE")
@@ -118,7 +125,7 @@ class Router:
         if provider == "scopus":
             cache_identity += [network_access.route(provider).get("method", "auto"), bool(institutional_token)]
         key = hashlib.sha256(dumps(cache_identity).encode()).hexdigest()
-        row = self.store.db.execute("SELECT body,created FROM cache WHERE key=?", (key,)).fetchone()
+        row = self.store.db.execute("SELECT body,created FROM cache WHERE key=?", (key,)).fetchone() if self.store is not None else None
         if row and (self.offline or (not self.fresh and time.time() - row[1] < 86400)):
             return row[0], {"cached": True, "cached_at": row[1]}
         if self.offline:
@@ -156,8 +163,9 @@ class Router:
                 body = body.decode("utf8")
                 # Validate before caching; HTML errors must not poison the cache.
                 ET.fromstring(body) if provider == "arxiv" else json.loads(body)
-                with self.store.db:
-                    self.store.db.execute("INSERT OR REPLACE INTO cache VALUES(?,?,?,?)", (key, provider, time.time(), body))
+                if self.store is not None:
+                    with self.store.db:
+                        self.store.db.execute("INSERT OR REPLACE INTO cache VALUES(?,?,?,?)", (key, provider, time.time(), body))
                 result_info = {"cached": False, "auth_source": auth_source, "network_route": routing["route"],
                                "route_reason": routing["reason"], **response_info}
                 if provider == "scopus":
