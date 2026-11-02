@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-"""Download an immutable GitHub snapshot and run the user-level installer."""
+"""Download a GitHub source snapshot without the REST API and run the user-level installer."""
 import argparse
 import hashlib
 import io
@@ -20,12 +20,56 @@ REPOSITORY = 'misiote/vibe-research-codex'
 
 
 def fetch(url):
-    request = urllib.request.Request(url, headers={'User-Agent': 'vibe-research-installer', 'Accept': 'application/vnd.github+json'})
+    request = urllib.request.Request(url, headers={'User-Agent': 'vibe-research-installer', 'Accept': 'application/octet-stream'})
     with urllib.request.urlopen(request, timeout=60) as response:
         data = response.read(100 * 1024 * 1024 + 1)
     if len(data) > 100 * 1024 * 1024:
         raise ValueError('下载超过大小限制。')
     return data
+
+
+def fetch_ssh(ref):
+    git = shutil.which('git')
+    if not git or not shutil.which('ssh'):
+        raise ValueError('SSH 下载需要本机已安装 Git 和 OpenSSH。')
+    if not ref or ref.startswith('-') or any(c in ref for c in ('\n', '\r', '\x00')):
+        raise ValueError('SSH 下载的版本参数无效。')
+    with tempfile.TemporaryDirectory(prefix='vibe-research-ssh-') as temp:
+        root = Path(temp)
+        checkout = root / 'repo'
+        hooks = root / 'empty-hooks'
+        hooks.mkdir()
+        env = dict(os.environ, GIT_TERMINAL_PROMPT='0', GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15')
+        command = [git, '-c', 'core.hooksPath=' + str(hooks)]
+        def run(arguments, **kwargs):
+            try:
+                return subprocess.run(command + arguments, env=env, check=True, stderr=subprocess.PIPE, timeout=120, **kwargs)
+            except subprocess.CalledProcessError as exc:
+                error = (exc.stderr or b'').decode('utf8', errors='replace').strip()
+                raise ValueError('SSH/Git 获取失败：' + error) from exc
+        run(['init', '--quiet', str(checkout)], stdout=subprocess.PIPE)
+        run(['-C', str(checkout), 'remote', 'add', 'origin', 'git@github.com:' + REPOSITORY + '.git'], stdout=subprocess.PIPE)
+        print('通过现有 SSH 配置获取 GitHub 源码（不弹出认证提示）…', flush=True)
+        run(['-C', str(checkout), 'fetch', '--quiet', '--depth=1', 'origin', ref], stdout=subprocess.PIPE)
+        archive_path = root / 'snapshot.zip'
+        with archive_path.open('wb') as archive:
+            run(['-C', str(checkout), 'archive', '--format=zip', 'FETCH_HEAD'], stdout=archive)
+        if archive_path.stat().st_size > 100 * 1024 * 1024:
+            raise ValueError('SSH 安装包超过大小限制。')
+        return archive_path.read_bytes()
+
+
+def download_snapshot(ref):
+    url = 'https://codeload.github.com/' + REPOSITORY + '/zip/' + urllib.parse.quote(ref, safe='')
+    try:
+        return fetch(url), 'https'
+    except OSError as http_error:
+        print('HTTPS 源码下载失败：' + str(http_error), flush=True)
+        print('尝试使用 SSH；需要已有 GitHub SSH 授权与主机信任配置。', flush=True)
+        try:
+            return fetch_ssh(ref), 'ssh'
+        except (OSError, ValueError, subprocess.TimeoutExpired) as ssh_error:
+            raise ValueError('HTTPS 和 SSH 均未能获取源码。\nHTTPS：' + str(http_error) + '\nSSH：' + str(ssh_error) + '\n请检查网络和已有 SSH 配置，或手动下载安装。') from ssh_error
 
 
 def unpack(data, destination):
@@ -131,17 +175,24 @@ def install(directory, workspace, ref='main', aliases=True):
     except FileExistsError:
         raise ValueError('已有安装正在进行。如上次安装被强制中断，请确认无安装进程后移除 ' + str(lock))
     try:
-        print('1/4 获取 GitHub 版本…', flush=True)
-        metadata = json.loads(fetch('https://api.github.com/repos/' + REPOSITORY + '/commits/' + urllib.parse.quote(ref, safe='')))
-        commit = metadata.get('sha', '')
-        if not re.fullmatch(r'[0-9a-f]{40}', commit):
-            raise ValueError('GitHub 返回的版本标识无效。')
-        print('2/4 下载并校验 ' + commit[:12] + '…', flush=True)
-        data = fetch('https://codeload.github.com/' + REPOSITORY + '/zip/' + commit)
+        print('1/4 准备 GitHub 源码下载（无需 API 或 Token）…', flush=True)
+        print('2/4 下载并校验源码…', flush=True)
+        data, transport = download_snapshot(ref)
+        archive_sha256 = hashlib.sha256(data).hexdigest()
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            # GitHub ZIP snapshots normally carry the git commit in their comment.
+            archive_commit = archive.comment.decode('ascii', errors='replace').strip()
+        commit = archive_commit if re.fullmatch(r'[0-9a-f]{40}', archive_commit) else None
+        if re.fullmatch(r'[0-9a-fA-F]{40}', ref):
+            if commit and commit != ref.lower():
+                raise ValueError('下载源码的提交与指定版本不一致。')
+            commit = ref.lower()
+        snapshot = commit or 'archive-' + archive_sha256
+        print('源码版本：' + (commit or '未提供提交标识，使用压缩包 SHA-256 ' + archive_sha256), flush=True)
         with tempfile.TemporaryDirectory(prefix='.download-', dir=str(directory)) as temp:
             extracted = unpack(data, Path(temp))
             # Keep existing installations intact. Only reuse an identical source snapshot.
-            target = directory / commit
+            target = directory / snapshot
             if target.exists():
                 identical = all((target / p.relative_to(extracted)).is_file() and (target / p.relative_to(extracted)).read_bytes() == p.read_bytes() for p in extracted.rglob('*') if p.is_file())
                 if not identical:
@@ -169,7 +220,7 @@ def install(directory, workspace, ref='main', aliases=True):
             alias_status = 'installed' if result.returncode == 0 else 'conflict'
             if result.returncode:
                 print('插件已安装；短入口注册失败，已有技能保持不变。请从插件技能菜单使用入口。', file=sys.stderr)
-        receipt = {'repository': REPOSITORY, 'commit': commit, 'source': str(target), 'workspace': env['VIBE_RESEARCH_WORKSPACE'], 'aliases': alias_status}
+        receipt = {'repository': REPOSITORY, 'commit': commit, 'requested_ref': ref, 'transport': transport, 'archive_sha256': archive_sha256, 'source': str(target), 'workspace': env['VIBE_RESEARCH_WORKSPACE'], 'aliases': alias_status}
         (directory / 'installed.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n', encoding='utf8')
         print('\n安装完成。请完全退出并重启 Codex，再将研究工作区添加为本地项目：\n' + receipt['workspace'])
         print('工作台终端入口：vr-workbench（Windows 为 vr-workbench.cmd）。')
@@ -182,7 +233,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--install-dir', default=str(default_directory()))
     parser.add_argument('--workspace', default=os.environ.get('VIBE_RESEARCH_WORKSPACE', str(Path.home() / 'VibeResearch')))
-    parser.add_argument('--ref', default='main', help='GitHub branch, tag or commit; resolved to an immutable commit before download')
+    parser.add_argument('--ref', default='main', help='GitHub branch, tag or commit; downloaded directly without the REST API')
     parser.add_argument('--no-aliases', action='store_true')
     args = parser.parse_args()
     try:

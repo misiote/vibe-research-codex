@@ -16,7 +16,11 @@ Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/misiote/vib
 
 这会下载完整源码到用户目录，调用随包安装器，再注册五个显式短入口；不需要 Git。结束后重启 Codex，将显示的研究工作区添加为本地项目。默认源码位置为 `~/.local/share/vibe-research/installations/<提交>`，Windows 为 `%LOCALAPPDATA%\VibeResearch\installations\<提交>`。工作区默认 `~/VibeResearch`，与源码目录分开。
 
-安装器先检查 Codex / Python，再从 GitHub API 解析提交，按提交下载 Codeload ZIP，检查解压路径和插件 SHA-256 清单。清单用于检查文件完整性，信任来源仍是本仓库及 GitHub HTTPS。需要能访问 `raw.githubusercontent.com`、`api.github.com` 和 `codeload.github.com`；下载失败或 GitHub API 限流时会停止并显示错误，可稍后重试或手动下载。
+安装器先检查 Codex / Python，再直接从 Codeload 下载指定分支、标签或提交的 ZIP；**不调用 GitHub REST API，不需要 GitHub Token**，因此不会因 API 查询版本的限流而中断。源码包包含提交标识时记录该提交；没有标识时按压缩包 SHA-256 保存，不冒充已解析提交。所有下载仍须通过解压路径和插件 SHA-256 校验。
+
+**源码获取顺序：HTTPS → SSH。** Codeload 返回 HTTP 错误或网络不可达时，安装器尝试用本机 Git / OpenSSH 从 `git@github.com:misiote/vibe-research-codex.git` 获取同一个版本，并生成 ZIP，经过相同校验后安装。SSH 复用已有密钥、ssh-agent 与 SSH Host 配置，使用 `BatchMode=yes`、严格主机校验和连接超时；不索取密钥，不修改 `.ssh`，不自动接受未知主机。缺少 Git / SSH、密钥未授权或 GitHub 主机尚未受信任时，会分别显示 HTTPS 与 SSH 的失败原因。文件校验失败不会绕过校验或触发另一种下载方式。
+
+最初下载安装入口和引导脚本仍需访问 `raw.githubusercontent.com`；下载源码优先访问 `codeload.github.com`，失败后使用已有 GitHub SSH 连接。若这些入口均不可达，请手动下载完整源码包或通过已有 Git / SSH 环境获取仓库，再运行随包安装器。
 
 下载后的脚本可附加选项：
 

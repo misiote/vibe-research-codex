@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import urllib.error
 from unittest.mock import patch
 import zipfile
 
@@ -26,8 +27,9 @@ def archive(extra=None):
     files.update(extra or {})
     out = io.BytesIO()
     with zipfile.ZipFile(out, 'w') as z:
+        z.comment = SHA.encode()
         for name, data in files.items():
-            z.writestr(name if name.startswith('/') else 'repo-' + SHA + '/' + name, data)
+            z.writestr(zipfile.ZipInfo(name if name.startswith('/') else 'repo-' + SHA + '/' + name), data)
     return out.getvalue()
 
 
@@ -39,19 +41,95 @@ class OnlineInstall(unittest.TestCase):
 
     def install(self, payload=None, runner=None):
         content = archive() if payload is None else payload
-        with patch.object(bootstrap, 'preflight'), patch.object(bootstrap, 'prepare_marketplace', return_value=None), patch.object(bootstrap, 'fetch', side_effect=[json.dumps({'sha': SHA}).encode(), content]) as download, patch.object(bootstrap.subprocess, 'run', side_effect=runner, return_value=subprocess.CompletedProcess([], 0)) as run:
+        with patch.object(bootstrap, 'preflight'), patch.object(bootstrap, 'prepare_marketplace', return_value=None), patch.object(bootstrap, 'fetch', return_value=content) as download, patch.object(bootstrap.subprocess, 'run', side_effect=runner, return_value=subprocess.CompletedProcess([], 0)) as run:
             result = bootstrap.install(self.root / 'install', self.root / 'research')
         return result, download, run
 
-    def test_download_pins_commit_and_configures_all_entries(self):
+    def test_direct_download_records_archive_commit_without_api(self):
         result, download, run = self.install()
-        self.assertEqual(download.call_args_list[1].args[0], 'https://codeload.github.com/' + bootstrap.REPOSITORY + '/zip/' + SHA)
+        self.assertEqual(download.call_args_list[0].args[0], 'https://codeload.github.com/' + bootstrap.REPOSITORY + '/zip/main')
         self.assertEqual(result['aliases'], 'installed')
+        self.assertEqual(download.call_count, 1)
+        self.assertEqual(result['commit'], SHA)
+        self.assertEqual(result['archive_sha256'], hashlib.sha256(archive()).hexdigest())
         self.assertTrue(Path(result['source']).is_dir())
         self.assertEqual(run.call_args_list[0].kwargs['env']['VIBE_RESEARCH_WORKSPACE'], str(self.root / 'research'))
         self.assertIn('--install', run.call_args_list[1].args[0])
         self.assertFalse((self.root / 'install/.install-lock').exists())
         self.assertTrue((self.root / 'install/installed.json').is_file())
+
+    def test_api_rate_limit_is_irrelevant_to_direct_install(self):
+        def fetch(url):
+            if 'api.github.com' in url:
+                raise AssertionError('Installer must never contact the rate-limited REST API')
+            return archive()
+        with patch.object(bootstrap, 'preflight'), patch.object(bootstrap, 'prepare_marketplace', return_value=None), patch.object(bootstrap, 'fetch', side_effect=fetch) as download, patch.object(bootstrap.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)):
+            result = bootstrap.install(self.root / 'install', self.root / 'research')
+        self.assertEqual(download.call_count, 1)
+        self.assertEqual(result['commit'], SHA)
+
+    def test_archive_without_commit_uses_content_digest_not_fake_commit(self):
+        out = io.BytesIO(archive())
+        with zipfile.ZipFile(out, 'a') as z:
+            z.comment = b''
+        result, _, _ = self.install(out.getvalue())
+        self.assertIsNone(result['commit'])
+        self.assertEqual(Path(result['source']).name, 'archive-' + hashlib.sha256(out.getvalue()).hexdigest())
+
+    def test_explicit_commit_must_match_archive_metadata(self):
+        with patch.object(bootstrap, 'preflight'), patch.object(bootstrap, 'fetch', return_value=archive()), patch.object(bootstrap.subprocess, 'run') as run:
+            with self.assertRaisesRegex(ValueError, '提交与指定版本不一致'):
+                bootstrap.install(self.root / 'install', self.root / 'research', ref='b' * 40)
+            run.assert_not_called()
+
+    def test_http_403_falls_back_to_ssh_and_records_transport(self):
+        failure = urllib.error.HTTPError('https://codeload.github.com/fixture', 403, 'rate limit exceeded', {}, None)
+        with patch.object(bootstrap, 'preflight'), patch.object(bootstrap, 'prepare_marketplace', return_value=None), patch.object(bootstrap, 'fetch', side_effect=failure), patch.object(bootstrap, 'fetch_ssh', return_value=archive()) as ssh, patch.object(bootstrap.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)):
+            result = bootstrap.install(self.root / 'install', self.root / 'research')
+        ssh.assert_called_once_with('main')
+        self.assertEqual(result['transport'], 'ssh')
+        self.assertEqual(result['commit'], SHA)
+
+    def test_https_success_never_attempts_ssh(self):
+        with patch.object(bootstrap, 'fetch', return_value=archive()), patch.object(bootstrap, 'fetch_ssh') as ssh:
+            _, transport = bootstrap.download_snapshot('main')
+        self.assertEqual(transport, 'https')
+        ssh.assert_not_called()
+
+    def test_both_download_failures_show_both_causes(self):
+        with patch.object(bootstrap, 'fetch', side_effect=OSError('HTTP fixture unavailable')), patch.object(bootstrap, 'fetch_ssh', side_effect=ValueError('SSH fixture unavailable')):
+            with self.assertRaises(ValueError) as failure:
+                bootstrap.download_snapshot('main')
+        self.assertIn('HTTP fixture unavailable', str(failure.exception))
+        self.assertIn('SSH fixture unavailable', str(failure.exception))
+
+    def test_ssh_uses_existing_keys_and_strict_noninteractive_options(self):
+        def run(command, **kwargs):
+            if 'archive' in command:
+                kwargs['stdout'].write(archive())
+            return subprocess.CompletedProcess(command, 0)
+        with patch.object(bootstrap.shutil, 'which', side_effect=lambda name: name), patch.object(bootstrap.subprocess, 'run', side_effect=run) as command:
+            self.assertEqual(bootstrap.fetch_ssh('main'), archive())
+        fetch = next(c for c in command.call_args_list if 'fetch' in c.args[0])
+        self.assertEqual(fetch.args[0][-2:], ['origin', 'main'])
+        ssh = fetch.kwargs['env']['GIT_SSH_COMMAND']
+        self.assertIn('BatchMode=yes', ssh)
+        self.assertIn('StrictHostKeyChecking=yes', ssh)
+        self.assertEqual(fetch.kwargs['env']['GIT_TERMINAL_PROMPT'], '0')
+        self.assertEqual(fetch.kwargs['timeout'], 120)
+        self.assertFalse((self.root / '.ssh').exists())
+
+    def test_ssh_does_not_accept_option_as_ref(self):
+        with patch.object(bootstrap.shutil, 'which', return_value='git'), patch.object(bootstrap.subprocess, 'run') as run:
+            with self.assertRaises(ValueError):
+                bootstrap.fetch_ssh('--upload-pack=invalid')
+            run.assert_not_called()
+
+    def test_checksum_failure_does_not_trigger_ssh(self):
+        with patch.object(bootstrap, 'fetch_ssh') as ssh:
+            with self.assertRaisesRegex(ValueError, '校验失败'):
+                self.install(archive({'plugins/vibe-research/scripts/install_modes.py': b'changed'}))
+        ssh.assert_not_called()
 
     def test_repeat_install_keeps_research_and_reuses_snapshot(self):
         first, _, _ = self.install()
@@ -161,7 +239,7 @@ class OnlineInstall(unittest.TestCase):
 
     def test_failed_update_restores_previous_marketplace_registration(self):
         previous = self.root / 'previous'
-        with patch.object(bootstrap, 'preflight', return_value='codex'), patch.object(bootstrap, 'prepare_marketplace', return_value=previous), patch.object(bootstrap, 'fetch', side_effect=[json.dumps({'sha': SHA}).encode(), archive()]), patch.object(bootstrap.subprocess, 'run', side_effect=[subprocess.CalledProcessError(1, 'installer'), subprocess.CompletedProcess([], 0), subprocess.CompletedProcess([], 0)]) as run:
+        with patch.object(bootstrap, 'preflight', return_value='codex'), patch.object(bootstrap, 'prepare_marketplace', return_value=previous), patch.object(bootstrap, 'fetch', return_value=archive()), patch.object(bootstrap.subprocess, 'run', side_effect=[subprocess.CalledProcessError(1, 'installer'), subprocess.CompletedProcess([], 0), subprocess.CompletedProcess([], 0)]) as run:
             with self.assertRaises(subprocess.CalledProcessError):
                 bootstrap.install(self.root / 'install', self.root / 'research')
         self.assertEqual(run.call_args_list[-1].args[0], ['codex', 'plugin', 'marketplace', 'add', str(previous)])
