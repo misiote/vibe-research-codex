@@ -12,8 +12,8 @@ fi
 "$vr_python" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,9) else "需要 Python 3.9+")'
 vr_bootstrap=$(mktemp "${TMPDIR:-/tmp}/vibe-research-install.XXXXXXXX")
 trap 'rm -f "$vr_bootstrap"' EXIT HUP INT TERM
-"$vr_python" -c 'import sys, urllib.request
-with urllib.request.urlopen("https://raw.githubusercontent.com/misiote/vibe-research-codex/main/scripts/bootstrap.py", timeout=60) as response:
+"$vr_python" -c 'import sys, time, urllib.request
+with urllib.request.urlopen("https://raw.githubusercontent.com/misiote/vibe-research-codex/main/scripts/bootstrap.py?t=" + str(time.time_ns()), timeout=60) as response:
     data = response.read()
 with open(sys.argv[1], "wb") as target:
     target.write(data)

@@ -33,6 +33,12 @@ Windows 在 `-File` 后的脚本路径后追加同样选项。`--ref` 可指定�
 
 系统依赖仍按下面的平台说明准备。安装器不会自动获取管理员权限、安装 Python / Codex、处理机构授权或重启应用。`vr-workbench` 的 bin 目录不在 PATH 时，按安装输出加入 PATH；也可直接调用输出的完整命令路径。
 
+### 旧下载目录导致来源失效
+
+如果报错包含 `vibe-research-local` 和 `marketplace root does not contain a supported manifest`，通常是旧安装目录被移动、删除或解压不完整。当前在线安装器会识别这条失效登记，通过 Codex CLI 移除它，再继续安装；不会删除旧目录、研究数据或其他插件。重新运行上面的在线安装命令即可。下载入口会为引导脚本使用独立请求参数，减少旧脚本缓存导致修复未生效的情况。
+
+若旧 manifest 仍存在但无法读取，或失效的是其他 marketplace，安装器会停止并显示原因，保留原配置。确认只是 Vibe Research 的旧登记时，也可手动运行 `codex plugin marketplace remove vibe-research-local` 后重试；这只移除来源登记，不删除研究工作区。
+
 ## 获取当前版本
 
 推荐克隆 `main`，或在 GitHub 的 Code 菜单选择 Download ZIP 后完整解压：

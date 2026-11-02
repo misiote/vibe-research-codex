@@ -124,6 +124,41 @@ class OnlineInstall(unittest.TestCase):
                 bootstrap.prepare_marketplace('codex', self.root / 'new')
             run.assert_not_called()
 
+    def test_stale_download_source_is_removed_before_listing_again(self):
+        missing = self.root / 'deleted-download'
+        error = ('Error: failed to load marketplace(s):\n- `vibe-research-local` at ' + str(missing) + ': marketplace root does not contain a supported manifest\n').encode()
+        failure = subprocess.CalledProcessError(1, 'codex', stderr=error)
+        with patch.object(bootstrap.subprocess, 'check_output', side_effect=[failure, b'{"marketplaces": []}']) as listing, patch.object(bootstrap.subprocess, 'run') as run:
+            self.assertIsNone(bootstrap.prepare_marketplace('codex', self.root / 'new'))
+            self.assertEqual(listing.call_count, 2)
+            run.assert_called_once_with(['codex', 'plugin', 'marketplace', 'remove', 'vibe-research-local'], check=True)
+
+    def test_existing_manifest_is_never_removed_by_stale_source_repair(self):
+        old = self.root / 'existing'
+        manifest = old / '.agents/plugins/marketplace.json'
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text('{invalid user config')
+        error = ('- `vibe-research-local` at ' + str(old) + ': marketplace root does not contain a supported manifest').encode()
+        with patch.object(bootstrap.subprocess, 'check_output', side_effect=subprocess.CalledProcessError(1, 'codex', stderr=error)), patch.object(bootstrap.subprocess, 'run') as run:
+            with self.assertRaises(ValueError):
+                bootstrap.prepare_marketplace('codex', self.root / 'new')
+            run.assert_not_called()
+        self.assertEqual(manifest.read_text(), '{invalid user config')
+
+    def test_other_broken_marketplace_does_not_trigger_removal(self):
+        error = b'- `another-marketplace` at /missing: marketplace root does not contain a supported manifest'
+        with patch.object(bootstrap.subprocess, 'check_output', side_effect=subprocess.CalledProcessError(1, 'codex', stderr=error)), patch.object(bootstrap.subprocess, 'run') as run:
+            with self.assertRaises(ValueError):
+                bootstrap.prepare_marketplace('codex', self.root / 'new')
+            run.assert_not_called()
+
+    def test_failed_stale_source_removal_stops_repair(self):
+        error = ('- `vibe-research-local` at ' + str(self.root / 'missing') + ': marketplace root does not contain a supported manifest').encode()
+        with patch.object(bootstrap.subprocess, 'check_output', side_effect=subprocess.CalledProcessError(1, 'list', stderr=error)) as listing, patch.object(bootstrap.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, 'remove')):
+            with self.assertRaises(subprocess.CalledProcessError):
+                bootstrap.prepare_marketplace('codex', self.root / 'new')
+            self.assertEqual(listing.call_count, 1)
+
     def test_failed_update_restores_previous_marketplace_registration(self):
         previous = self.root / 'previous'
         with patch.object(bootstrap, 'preflight', return_value='codex'), patch.object(bootstrap, 'prepare_marketplace', return_value=previous), patch.object(bootstrap, 'fetch', side_effect=[json.dumps({'sha': SHA}).encode(), archive()]), patch.object(bootstrap.subprocess, 'run', side_effect=[subprocess.CalledProcessError(1, 'installer'), subprocess.CompletedProcess([], 0), subprocess.CompletedProcess([], 0)]) as run:

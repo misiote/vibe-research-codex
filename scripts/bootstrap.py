@@ -81,8 +81,31 @@ def preflight():
     raise ValueError('请先安装或更新 Codex，并确保 codex 可用；详见 INSTALL.md。')
 
 
+def marketplace_listing(codex):
+    command = [codex, 'plugin', 'marketplace', 'list', '--json']
+    try:
+        return json.loads(subprocess.check_output(command, stderr=subprocess.PIPE))
+    except subprocess.CalledProcessError as exc:
+        # A deleted Downloads folder can make `list` fail before it emits JSON.
+        # Repair only our exact stale registration, through the public Codex CLI.
+        error = (exc.stderr or b'')
+        if isinstance(error, bytes):
+            error = error.decode('utf8', errors='replace')
+        match = re.search(r'^- `vibe-research-local` at (.+): marketplace root does not contain a supported manifest\s*$', error, re.MULTILINE)
+        if not match:
+            raise ValueError('Codex 无法读取插件来源列表：\n' + error.strip()) from exc
+        previous = Path(match.group(1))
+        if (previous / '.agents/plugins/marketplace.json').exists():
+            raise ValueError('旧来源的 manifest 仍存在但 Codex 无法读取；为保留配置，请先手动检查该来源：' + str(previous)) from exc
+        print('检测到失效的 Vibe Research 旧来源：' + str(previous), flush=True)
+        print('移除失效登记并重新安装；不删除旧目录、研究数据或其他插件。', flush=True)
+        subprocess.run([codex, 'plugin', 'marketplace', 'remove', 'vibe-research-local'], check=True)
+        # Do not restore the invalid registration if installation later fails.
+        return json.loads(subprocess.check_output(command, stderr=subprocess.PIPE))
+
+
 def prepare_marketplace(codex, target):
-    listing = json.loads(subprocess.check_output([codex, 'plugin', 'marketplace', 'list', '--json']))
+    listing = marketplace_listing(codex)
     for item in listing.get('marketplaces', []):
         if item.get('name') != 'vibe-research-local' or Path(item['root']).resolve() == target.resolve():
             continue
