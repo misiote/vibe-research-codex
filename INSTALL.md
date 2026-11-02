@@ -5,7 +5,7 @@
 macOS 预先安装并登录支持 `codex plugin` 的 Codex App 即可；不要求预装 Python、pip、Git、Homebrew 或 Command Line Tools。最低构建目标 macOS 12，同时须满足 Codex App 的系统要求。Windows/Linux 仍需 Python 3.9+，未验证可用性。macOS / Linux 运行：
 
 ```bash
-curl -fsSL 'https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.sh?v=0.11.1' -o /tmp/vibe-research-install.sh && sh /tmp/vibe-research-install.sh
+curl -fsSL 'https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.sh?v=0.11.2' -o /tmp/vibe-research-install.sh && sh /tmp/vibe-research-install.sh
 ```
 
 Windows PowerShell 运行：

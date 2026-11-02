@@ -1,4 +1,4 @@
-# Vibe Research 0.11.1
+# Vibe Research 0.11.2
 
 在 Codex 中组织研究构想、文献证据、开发实验与版本历史。完整安装与使用指南见 [仓库 README](https://github.com/misiote/vibe-research-codex#readme)，平台依赖与更新见 [INSTALL.md](https://github.com/misiote/vibe-research-codex/blob/main/INSTALL.md)。
 

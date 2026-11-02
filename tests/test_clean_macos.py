@@ -1,5 +1,8 @@
 """No-compiler runtime/launcher contracts for the macOS distribution."""
 import hashlib
+import ast
+import os
+from types import SimpleNamespace
 import importlib.util
 import json
 from pathlib import Path
@@ -64,6 +67,27 @@ class CleanMacOS(unittest.TestCase):
             if sys.platform != 'win32':
                 result = subprocess.run([str(root / 'bin/vr-workbench'), '--show-config'], env={'PATH': '/nonexistent'}, capture_output=True, check=True)
                 self.assertEqual(json.loads(result.stdout)['workspace'], str((root / 'workspace').resolve()))
+
+    def test_workbench_does_not_prefer_host_cache_over_managed_interpreter(self):
+        tree = ast.parse((PLUGIN / 'scripts/workbench.py').read_text())
+        function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'runtime_python')
+        code = compile(ast.Module(body=[function], type_ignores=[]), '<runtime-selector>', 'exec')
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            managed = root / 'managed/python3'
+            cached = root / '.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3'
+            for p in (managed, cached):
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.touch()
+            namespace = {'os': os, 'sys': SimpleNamespace(executable=str(managed)), 'Path': Path, 'subprocess': subprocess}
+            exec(code, namespace)
+            with patch.object(Path, 'home', return_value=root), patch.dict(os.environ, {}, clear=True), patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)) as run:
+                self.assertEqual(namespace['runtime_python'](), str(managed))
+                self.assertEqual(run.call_args.args[0][0], str(managed))
+                self.assertEqual(run.call_count, 1)
+            with patch.dict(os.environ, {'VIBE_RESEARCH_PYTHON': str(managed)}, clear=True), patch.object(subprocess, 'run') as run:
+                self.assertEqual(namespace['runtime_python'](), str(managed))
+                run.assert_not_called()
 
     def test_aliases_respect_codex_home(self):
         module = load('install_modes')

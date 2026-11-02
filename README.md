@@ -15,7 +15,7 @@
 **macOS（已验证）；Linux（未验证，可能不可用）：**
 
 ```bash
-curl -fsSL 'https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.sh?v=0.11.1' -o /tmp/vibe-research-install.sh && sh /tmp/vibe-research-install.sh
+curl -fsSL 'https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.sh?v=0.11.2' -o /tmp/vibe-research-install.sh && sh /tmp/vibe-research-install.sh
 ```
 
 **Windows PowerShell（未验证，可能不可用）：**

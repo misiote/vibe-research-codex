@@ -13,9 +13,9 @@ for proxy_key in ('NO_PROXY','no_proxy'):
  os.environ[proxy_key]=','.join(entries)
 local_opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
 def runtime_python():
- explicit=os.environ.get('VR_PYTHON');candidates=[Path(explicit).expanduser()] if explicit else []
+ explicit=os.environ.get('VR_PYTHON') or os.environ.get('VIBE_RESEARCH_PYTHON');candidates=[Path(explicit).expanduser()] if explicit else []
  base=Path.home()/'.cache/codex-runtimes/codex-primary-runtime/dependencies/python';prepared=Path.home()/'.config/vibe-research/python-runtime'
- candidates += [prepared/'bin/python',prepared/'Scripts/python.exe',base/'bin/python3',base/'bin/python',base/'python.exe',base/'Scripts/python.exe',Path(sys.executable)]
+ candidates += [Path(sys.executable),prepared/'bin/python',prepared/'Scripts/python.exe',base/'bin/python3',base/'bin/python',base/'python.exe',base/'Scripts/python.exe']
  fallback=Path(sys.executable)
  for candidate in candidates:
   if not candidate.is_file():continue
