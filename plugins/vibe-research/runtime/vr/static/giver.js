@@ -26,19 +26,29 @@
   selected=b;if(focus)$('version-search').value='';clearInspection();$('selection').hidden=false;$('branch-info').replaceChildren(make('span',b.mode==='brainstorming'?'Brainstorming':'Engineering'),make('h2',b.title),make('code',b.name),make('p',b.head?'HEAD · '+b.head.slice(0,8):'尚未提交'));
   $('open-project').href=b.url;$('branch-mode').value=b.mode==='brainstorming'?'engineering':'brainstorming';branches();tree();log();address();if(focus)locate(view==='log'?commitNodes.get(b.head):branchNodes.get(b.name));
  }
- function setView(name){view=['tree','log','diff','reflog'].includes(name)?name:'tree';for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-selected',String(b.dataset.view===view));for(const n of ['tree','log','diff','reflog'])$(n+'-view').hidden=n!==view;address()}
+ function setView(name){view=['tree','log','diff','reflog'].includes(name)?name:'tree';for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-selected',String(b.dataset.view===view));for(const n of ['tree','log','diff','reflog'])$(n+'-view').hidden=n!==view;if(view==='tree'&&data)tree();address()}
  function openFamily(g,branch,tab='tree',focus=false){
   clearInspection();family=g;data=VRGiverView.scope(workspace,g);$('catalog').hidden=true;$('family-workspace').hidden=false;$('family-title').textContent=g.title;$('family-meta').textContent=g.branches.length+' 个独立项目 · '+g.commits.length+' 个版本 · '+g.id;
   $('version-search').value='';$('diff').replaceChildren();$('status').textContent='当前谱系：'+g.title;setView(tab);compareOptions();records();select(data.branches.find(b=>b.name===branch)||g.origin,focus);
  }
  function tree(){
-  branchNodes.clear();$('tree').replaceChildren();const rows=[],seen=new Set(),walk=(b,depth)=>{if(seen.has(b.name))return;seen.add(b.name);rows.push({b,depth,y:22+rows.length*110});for(const child of data.branches.filter(c=>c.parent===b.name))walk(child,depth+1)};
+  const host=$('tree');branchNodes.clear();host.replaceChildren();
+  const rows=[],seen=new Set(),walk=(b,depth)=>{if(seen.has(b.name))return;seen.add(b.name);rows.push({b,depth});for(const child of data.branches.filter(c=>c.parent===b.name))walk(child,depth+1)};
   for(const b of data.branches.filter(b=>!data.branches.some(p=>p.name===b.parent)))walk(b,0);for(const b of data.branches)walk(b,0);
-  if(!rows.length)return;const w=380+Math.max(...rows.map(r=>r.depth))*250,h=Math.max(240,rows.length*110+22),canvas=svg('svg',{viewBox:`0 0 ${w} ${h}`,width:w,height:h,role:'group','aria-label':'当前项目谱系'}),by=new Map(rows.map(r=>[r.b.name,r]));
-  for(const r of rows){const p=by.get(r.b.parent);if(!p)continue;const x1=28+p.depth*250+145,y1=p.y+44,x2=28+r.depth*250,y2=r.y+44;canvas.append(svg('path',{d:`M${x1},${y1} C${x1+75},${y1} ${x2-70},${y2} ${x2},${y2}`,fill:'none',stroke:'#b4c8b5','stroke-width':2}))}
-  for(const r of rows){const b=r.b,g=svg('g',{tabindex:0,role:'button','aria-label':b.title+' · '+b.name,transform:`translate(${28+r.depth*250},${r.y})`});const trim=(s,n)=>s.length>n?s.slice(0,n-1)+'…':s;
-   g.append(svg('title',{},b.title+' · '+b.name+' · '+b.project),svg('rect',{width:300,height:94,rx:10,fill:b.mode==='brainstorming'?'#1e3438':'#233449',stroke:b.name===selected?.name?'#9dd6ff':'#587187','stroke-width':b.name===selected?.name?2.5:1}),svg('text',{x:14,y:22,class:'giver-svg-mode'},b.mode==='brainstorming'?'Brainstorming':'Engineering'),svg('text',{x:14,y:44,class:'giver-svg-title'},trim(b.title,28)),svg('text',{x:14,y:64,class:'giver-svg-meta'},trim(b.name,38)),svg('text',{x:14,y:82,class:'giver-svg-meta'},(b.head?b.head.slice(0,8):'尚未提交')+(b.lifecycle!=='active'?' · '+b.lifecycle:'')));
-   g.onclick=()=>select(b);g.onkeydown=e=>{if(e.key==='Enter')select(b)};canvas.append(g);branchNodes.set(b.name,g)}$('tree').append(canvas);
+  if(!rows.length)return;
+  const cardWidth=Math.max(180,Math.min(340,(host.parentElement.clientWidth||396)-56)),step=cardWidth+56,w=56+Math.max(...rows.map(r=>r.depth))*step+cardWidth;
+  const canvas=svg('svg',{viewBox:`0 0 ${w} 240`,width:w,height:240,role:'group','aria-label':'当前项目谱系'}),edges=svg('g'),cards=svg('g');canvas.append(edges,cards);host.append(canvas);
+  let y=22;
+  for(const r of rows){
+   const b=r.b,g=svg('g',{tabindex:0,role:'button','aria-label':b.title+' · '+b.name}),rect=svg('rect',{width:cardWidth,rx:10,fill:b.mode==='brainstorming'?'#1e3438':'#233449',stroke:b.name===selected?.name?'#9dd6ff':'#587187','stroke-width':b.name===selected?.name?2.5:1}),box=svg('foreignObject',{width:cardWidth,height:1}),content=make('div');content.className='giver-tree-card';
+   content.append(make('span',b.mode==='brainstorming'?'Brainstorming':'Engineering'),make('strong',b.title),make('span',b.name),make('span',(b.head?b.head.slice(0,8):'尚未提交')+(b.lifecycle!=='active'?' · '+b.lifecycle:'')));
+   box.append(content);g.append(svg('title',{},b.title+' · '+b.name+' · '+b.project),rect,box);cards.append(g);
+   r.height=Math.max(104,content.scrollHeight);r.y=y;r.x=28+r.depth*step;y+=r.height+24;rect.setAttribute('height',r.height);box.setAttribute('height',r.height);g.setAttribute('transform',`translate(${r.x},${r.y})`);
+   g.onclick=()=>select(b);g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(b)}};branchNodes.set(b.name,g);
+  }
+  const by=new Map(rows.map(r=>[r.b.name,r]));
+  for(const r of rows){const p=by.get(r.b.parent);if(!p)continue;const x1=p.x+cardWidth,y1=p.y+p.height/2,x2=r.x,y2=r.y+r.height/2;edges.append(svg('path',{d:`M${x1},${y1} C${x1+28},${y1} ${x2-28},${y2} ${x2},${y2}`,fill:'none',stroke:'#b4c8b5','stroke-width':2}))}
+  const h=Math.max(240,y);canvas.setAttribute('height',h);canvas.setAttribute('viewBox',`0 0 ${w} ${h}`);
  }
  function log(){
   commitNodes.clear();$('log').replaceChildren();$('version-results').replaceChildren();const query=$('version-search').value,commits=VRGiverView.versions(data,query).sort((a,b)=>a.at.localeCompare(b.at));$('version-count').textContent='显示 '+commits.length+' / '+data.commits.length+' 个版本';
@@ -67,6 +77,7 @@
   else{catalog();if(requested||project)VRUI.toast('未找到指定项目或分支，请重新选择项目谱系。',true)}
  }
  function diffRows(rows){$('diff').replaceChildren();if(!rows.length)$('diff').append(make('p','所选版本没有差异。'));for(const item of rows){const d=make('details'),grid=make('div');grid.className='giver-diff-grid';grid.append(make('pre',fmt(item.before)),make('pre',fmt(item.after)));d.append(make('summary',item.change+' · '+item.path),grid);$('diff').append(d)}}
+ let resizeFrame;addEventListener('resize',()=>{cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(()=>{if(data&&view==='tree')tree()})});
  $('project-search').oninput=catalogRows;$('version-search').oninput=()=>{clearInspection();log();address()};$('back-catalog').onclick=catalog;
  $('init-form').onsubmit=e=>{e.preventDefault();act(e.submitter,async()=>{const result=await post('init',{title:$('init-title').value,mode:$('init-mode').value});$('init-title').value='';await refresh();openFamily(groups.find(g=>g.branches.some(b=>b.project===result.project)),result.branch);VRUI.toast('独立项目与初始快照已创建')})};
  $('commit-form').onsubmit=e=>{e.preventDefault();act(e.submitter,async()=>{await post('commit',{branch:selected.name,message:$('commit-message').value});$('commit-message').value='';await refresh();VRUI.toast('研究版本已提交')})};
