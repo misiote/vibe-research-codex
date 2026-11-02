@@ -5,6 +5,9 @@ description: 在 Codex 中开始、继续和管理 Vibe Research 研究项目，
 
 # Vibe Research
 
+macOS 使用安装器记录的解释器：读取 `~/.config/vibe-research/launcher.json` 中的 `python` 与 `workspace`（设置过 `XDG_CONFIG_HOME` 时使用对应配置目录），以该绝对路径替换下文所有 Python 命令的解释器。不要调用系统 `python3` 开发工具占位程序；专用运行时无需 Homebrew 或 Command Line Tools。
+
+
 插件根目录是本技能目录的 `../..`。工具是 `<插件根>/runtime/bin/vr`，便携启动器是 `<插件根>/scripts/workbench.py`。以实际 skill 路径解析，不猜安装目录，不把研究数据写入插件缓存。
 
 ## 一个入口

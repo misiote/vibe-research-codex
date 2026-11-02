@@ -3,7 +3,9 @@ set -eu
 
 vr_share_root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
-if command -v codex >/dev/null 2>&1; then
+if [ -n "${VIBE_RESEARCH_CODEX:-}" ]; then
+  vr_codex_bin=$VIBE_RESEARCH_CODEX
+elif command -v codex >/dev/null 2>&1; then
   vr_codex_bin=$(command -v codex)
 elif [ -x "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex" ]; then
   vr_codex_bin="/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
@@ -32,6 +34,10 @@ fi
 vr_workspace=${VIBE_RESEARCH_WORKSPACE:-$HOME/VibeResearch}
 
 if ! "$vr_python" "$vr_share_root/plugins/vibe-research/scripts/companion.py" --workspace "${VIBE_RESEARCH_WORKSPACE:-$HOME/VibeResearch}" --check; then
+  if [ "$(uname -s)" = Darwin ] && [ "${VIBE_RESEARCH_MANAGED_PYTHON:-}" = 1 ]; then
+    echo "Mac 伴侣预检失败，安装未完成。请保留错误输出并重试。" >&2
+    exit 1
+  fi
   echo "悬浮研究伴侣尚未就绪；浏览器工作台仍可使用。按 INSTALL.md 补齐本系统依赖后重试。" >&2
 fi
 

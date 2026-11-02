@@ -30,6 +30,10 @@ def fetch(url):
 
 def fetch_ssh(ref):
     git = shutil.which('git')
+    if sys.platform == 'darwin' and git == '/usr/bin/git':
+        developer = subprocess.run(['/usr/bin/xcode-select', '-p'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if developer.returncode:
+            raise ValueError('此 Mac 没有 Git 开发工具；不会自动弹出安装窗口。请恢复 HTTPS 访问后重试。')
     if not git or not shutil.which('ssh'):
         raise ValueError('SSH 下载需要本机已安装 Git 和 OpenSSH。')
     if not ref or ref.startswith('-') or any(c in ref for c in ('\n', '\r', '\x00')):
@@ -200,11 +204,16 @@ def install(directory, workspace, ref='main', aliases=True):
             else:
                 extracted.rename(target)
         print('3/4 安装 Codex 插件与工作台入口…', flush=True)
-        env = dict(os.environ, VIBE_RESEARCH_WORKSPACE=str(Path(workspace).expanduser().resolve()), VIBE_RESEARCH_PYTHON=sys.executable)
+        env = dict(os.environ, VIBE_RESEARCH_WORKSPACE=str(Path(workspace).expanduser().resolve()), VIBE_RESEARCH_PYTHON=sys.executable, VIBE_RESEARCH_CODEX=str(codex))
         if os.name == 'nt':
             command = ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(target / 'install.ps1')]
         else:
             command = ['sh', str(target / 'install.sh')]
+        if sys.platform == 'darwin' and env.get('VIBE_RESEARCH_MANAGED_PYTHON') == '1':
+            wheel = target / 'plugins/vibe-research/vendor/pypdf-6.21.4-py3-none-any.whl'
+            print('从随包 wheel 准备 PDF 阅读依赖（不访问 PyPI）…', flush=True)
+            subprocess.run([sys.executable, '-m', 'pip', '--isolated', 'install', '--disable-pip-version-check', '--no-index', '--no-deps', str(wheel)], env=env, check=True, timeout=120)
+            subprocess.run([sys.executable, '-I', '-c', 'import ssl,sqlite3,pypdf'], env=env, check=True, timeout=20)
         previous = prepare_marketplace(codex, target)
         try:
             subprocess.run(command, env=env, check=True)
@@ -238,7 +247,7 @@ def main():
     args = parser.parse_args()
     try:
         install(args.install_dir, args.workspace, args.ref, not args.no_aliases)
-    except (OSError, ValueError, KeyError, zipfile.BadZipFile, subprocess.CalledProcessError) as exc:
+    except (OSError, ValueError, KeyError, zipfile.BadZipFile, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         print('安装未完成：' + str(exc) + '\n请按 README / INSTALL.md 的手动安装方式重试。', file=sys.stderr)
         return 1
     return 0

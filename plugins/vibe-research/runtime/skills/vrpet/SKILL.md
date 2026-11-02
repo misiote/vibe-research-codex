@@ -5,6 +5,9 @@ description: 显式唤起当前工作区的 Vibe Research 悬浮研究伴侣。
 
 # vrpet
 
+macOS 使用安装器记录的解释器：读取 `~/.config/vibe-research/launcher.json` 中的 `python` 与 `workspace`（设置过 `XDG_CONFIG_HOME` 时使用对应配置目录），以该绝对路径替换下文所有 Python 命令的解释器。不要调用系统 `python3` 开发工具占位程序；专用运行时无需 Homebrew 或 Command Line Tools。
+
+
 本目录 `../..` 是插件根。将本次显式调用视为唤起研究伴侣的请求，直接执行：
 
 `python3 <插件根>/scripts/companion.py --workspace <工作区>`

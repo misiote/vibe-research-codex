@@ -10,12 +10,12 @@
 
 ### 一条命令安装（推荐）
 
-预先安装 Codex 与 Python 3.9+，然后在终端运行。无需 Git、手动解压或复制插件文件。
+**macOS 只需预先安装并登录 Codex App**（最低构建目标 macOS 12；也需满足 Codex App 自身的系统要求）。安装器自动准备专用 Python、离线 PDF 依赖与 Apple Silicon / Intel 通用伴侣，**无需预装 Python、pip、Git、Homebrew 或 Command Line Tools**。Windows/Linux 仍需自行准备 Python 3.9+，且暂不保证可用。
 
 **macOS（已验证）；Linux（未验证，可能不可用）：**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.sh -o /tmp/vibe-research-install.sh && sh /tmp/vibe-research-install.sh
+curl -fsSL 'https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.sh?v=0.11.1' -o /tmp/vibe-research-install.sh && sh /tmp/vibe-research-install.sh
 ```
 
 **Windows PowerShell（未验证，可能不可用）：**
@@ -24,7 +24,9 @@ curl -fsSL https://raw.githubusercontent.com/misiote/vibe-research-codex/main/in
 Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.ps1 -OutFile "$env:TEMP\vibe-research-install.ps1"; if ($?) { powershell -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\vibe-research-install.ps1" }
 ```
 
-安装器直接下载 GitHub 的 `main` 源码，不依赖 GitHub REST API，也不需要 Token。源码 HTTPS 下载失败时，会尝试使用本机已有的 Git / SSH 配置获取，再校验工具文件，安装 Codex 插件、工作台命令与五个短入口。安装结束会显示研究工作区位置；完全重启 Codex，把该目录添加为本地项目，即可开始使用。无需管理员权限；不会自动安装系统依赖或重启 App。
+安装器直接下载 GitHub 的 `main` 源码，不依赖 GitHub REST API，也不需要 Token。源码 HTTPS 下载失败时，会尝试使用本机已有的 Git / SSH 配置获取，再校验工具文件，安装 Codex 插件、工作台命令与五个短入口。安装结束会显示研究工作区位置；完全重启 Codex，把该目录添加为本地项目，即可开始使用。Mac 运行时保存在用户目录，无需管理员权限，不改系统 Python，也不会重启 App。
+
+Mac 专用 Python 保存于 `~/.local/share/vibe-research/runtimes`，由官方 Python Standalone Builds 固定版本和 SHA-256 校验；PDF wheel 与预编译伴侣随插件提供。下载显示进度并支持中断续传，旧运行时可复用。伴侣目前为 ad-hoc 签名，未做 Developer ID 公证；安装器不绕过 Gatekeeper 或组织安全策略。网络不可达、系统策略阻止执行或 Codex 未安装时会明确报错，不能视为安装成功。
 
 默认源码保存在 `~/.local/share/vibe-research/installations`，Windows 为 `%LOCALAPPDATA%\VibeResearch\installations`；研究数据默认在 `~/VibeResearch`。再次运行同一命令可更新，旧源码与研究数据保留。短入口有同名冲突时保留原技能，并提示使用插件技能菜单。
 
@@ -32,7 +34,7 @@ Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/misiote/vib
 
 ### 手动下载安装
 
-需要 Python 3.9+，以及支持 `codex plugin` 命令的 Codex。获取当前源码：
+手动源码安装需要可用的 Python 3.9+，以及支持 `codex plugin` 命令的 Codex。没有 Python 的 Mac 请使用上面的在线安装。获取当前源码：
 
 ```bash
 git clone https://github.com/misiote/vibe-research-codex.git
@@ -43,7 +45,7 @@ cd vibe-research-codex
 
 | 平台 | 可用性 | 在仓库根目录安装 | 悬浮研究伴侣依赖 |
 | --- | --- | --- | --- |
-| macOS | 已完成实际验证 | 双击 `安装Vibe Research.command`，或 `sh install.sh` | 首次构建需要 Xcode Command Line Tools 的 `clang` |
+| macOS | 已完成实际验证 | 双击 `安装Vibe Research.command`，或 `sh install.sh` | 随包通用伴侣无需编译；在线安装自动准备 Python |
 | Windows | **未验证，暂不保证可用** | 双击 `install-windows.cmd` | WebView2；源码无预编译伴侣时需要 .NET 8 SDK |
 | Linux | **未验证，暂不保证可用** | `sh install.sh` | 图形桌面、GTK 3、Cairo、WebKitGTK 4.1；也可使用浏览器工作台 |
 

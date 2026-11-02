@@ -5,6 +5,9 @@ description: 使用 giver 管理独立科研项目的分支、快照、历史、
 
 # giver — GIt VibE Research
 
+macOS 使用安装器记录的解释器：读取 `~/.config/vibe-research/launcher.json` 中的 `python` 与 `workspace`（设置过 `XDG_CONFIG_HOME` 时使用对应配置目录），以该绝对路径替换下文所有 Python 命令的解释器。不要调用系统 `python3` 开发工具占位程序；专用运行时无需 Homebrew 或 Command Line Tools。
+
+
 插件根为本目录 `../..`，确定性 CLI 为 `<插件根>/runtime/bin/vr giver --workspace <工作区> <子命令>`。这是宿主注册的显式技能入口，接收本次命令参数，不分类匹配自由文本。
 
 工作区优先当前目录已有的 `outputs/projects.json` 父目录，否则当前目录的 `vibe-research-workspace`。`/giver` 无参数时读取 `status` 并提供 `<固定工作台>/giver`。有命令参数时按下表直接调用 CLI 并核对结果。只读命令不创建项目。

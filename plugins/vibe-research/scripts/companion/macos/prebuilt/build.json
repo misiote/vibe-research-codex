@@ -1,0 +1,10 @@
+{
+  "architectures": [
+    "arm64",
+    "x86_64"
+  ],
+  "minimum_macos": "12.0",
+  "signing": "ad-hoc; not Developer ID notarized",
+  "source_sha256": "235553abd9617a5f8276814759d84b29c9ff4839158adabb10a3b315cddab90d",
+  "binary_sha256": "ca6443222036fb309dcee2a04bf26ac2d746777d472aca3c382d42d60601fa1a"
+}

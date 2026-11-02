@@ -5,6 +5,9 @@ description: 在 Vibe Research 中开始、暂停或恢复研究工作，按项�
 
 # Vibe Research 工作接续
 
+macOS 使用安装器记录的解释器：读取 `~/.config/vibe-research/launcher.json` 中的 `python` 与 `workspace`（设置过 `XDG_CONFIG_HOME` 时使用对应配置目录），以该绝对路径替换下文所有 Python 命令的解释器。不要调用系统 `python3` 开发工具占位程序；专用运行时无需 Homebrew 或 Command Line Tools。
+
+
 这里的“工作进程”是一个明确目标及交付物的工作单元，不是操作系统进程，也不等同于每次对话。以用户当前目标、研究库事实和现有授权为准。
 
 ## 入口与恢复现场

@@ -82,16 +82,35 @@ def run(command, **kwargs):
     return subprocess.run(command, text=True, capture_output=True, **kwargs)
 
 
+def macos_packaged_binary(plugin):
+    root = plugin / "scripts/companion/macos"
+    binary = root / "prebuilt/VibeResearchCompanion"
+    manifest = root / "prebuilt/build.json"
+    if not binary.is_file() or not manifest.is_file():
+        return None
+    try:
+        data = json.loads(manifest.read_text(encoding="utf8"))
+        valid = (hashlib.sha256(binary.read_bytes()).hexdigest() == data['binary_sha256']
+                 and hashlib.sha256((root / 'main.m').read_bytes()).hexdigest() == data['source_sha256'])
+    except (OSError, ValueError, KeyError):
+        return None
+    return binary if valid else None
+
+
 def check_host(plugin, host):
     if host == "macos":
         source = plugin / "scripts" / "companion" / "macos" / "main.m"
-        clang = shutil.which("clang")
-        ok = source.is_file() and bool(clang)
+        packaged = macos_packaged_binary(plugin)
+        clang = shutil.which("clang") if not packaged else None
+        if clang == "/usr/bin/clang":
+            if run(["/usr/bin/xcode-select", "-p"]).returncode:
+                clang = None
+        ok = bool(packaged) or (source.is_file() and bool(clang))
         return {
             "ok": ok,
             "platform": host,
-            "entry": str(source),
-            "detail": "AppKit/WebKit 与 clang 已就绪" if ok else "需要 macOS clang（安装 Xcode Command Line Tools）",
+            "entry": str(packaged or source),
+            "detail": "已找到并校验随包通用伴侣，无需编译工具" if packaged else ("源码编译环境已就绪" if ok else "随包伴侣缺失或校验失败；开发源码需要 clang"),
         }
     if host == "linux":
         source = plugin / "scripts" / "companion" / "linux" / "main.py"
@@ -128,17 +147,22 @@ def build_macos_app(source, app_path):
     badge = source.parent.parent / "assets" / "host-badge.png"
     output.parent.mkdir(parents=True, exist_ok=True)
     resources.mkdir(parents=True, exist_ok=True)
-    environment = os.environ.copy()
-    module_cache = output.parent / "module-cache"
-    module_cache.mkdir(parents=True, exist_ok=True)
-    environment["CLANG_MODULE_CACHE_PATH"] = str(module_cache)
-    completed = run(
-        ["clang", str(source), "-O", "-fobjc-arc", "-framework", "Cocoa", "-framework", "QuartzCore", "-framework", "WebKit", "-o", str(output)],
-        env=environment,
-    )
-    if completed.returncode:
-        detail = completed.stderr.strip().splitlines()
-        raise RuntimeError("研究伴侣编译失败：" + (detail[-1] if detail else "clang 返回错误"))
+    packaged = macos_packaged_binary(source.parents[3])
+    if packaged:
+        shutil.copy2(packaged, output)
+        output.chmod(0o755)
+    else:
+        environment = os.environ.copy()
+        module_cache = output.parent / "module-cache"
+        module_cache.mkdir(parents=True, exist_ok=True)
+        environment["CLANG_MODULE_CACHE_PATH"] = str(module_cache)
+        completed = run(
+            ["clang", str(source), "-O", "-fobjc-arc", "-framework", "Cocoa", "-framework", "QuartzCore", "-framework", "WebKit", "-o", str(output)],
+            env=environment,
+        )
+        if completed.returncode:
+            detail = completed.stderr.strip().splitlines()
+            raise RuntimeError("研究伴侣编译失败：" + (detail[-1] if detail else "clang 返回错误"))
     if not badge.is_file():
         raise RuntimeError("研究伴侣缺少宿主应用角标")
     shutil.copy2(badge, resources / "host-badge.png")
@@ -282,7 +306,8 @@ def wait_for_pid(pid_file_path):
 def launch_macos(plugin, runtime, url, title, ui_state_path, pid_file_path, log_path):
     source = plugin / "scripts" / "companion" / "macos" / "main.m"
     badge = source.parent.parent / "assets" / "host-badge.png"
-    digest = hashlib.sha256(source.read_bytes() + (badge.read_bytes() if badge.is_file() else b"")).hexdigest()[:16]
+    packaged = macos_packaged_binary(plugin)
+    digest = hashlib.sha256(source.read_bytes() + (packaged.read_bytes() if packaged else b"") + (badge.read_bytes() if badge.is_file() else b"")).hexdigest()[:16]
     app_path = runtime / "bin" / digest / "Vibe Research Companion.app"
     binary = app_path / "Contents" / "MacOS" / "VibeResearchCompanion"
     if not binary.is_file():

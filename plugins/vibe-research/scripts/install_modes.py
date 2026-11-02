@@ -2,6 +2,7 @@
 """Register short, explicit native skill aliases without changing Codex private state."""
 import argparse
 import json
+import os
 from pathlib import Path
 import shutil
 import sys
@@ -29,6 +30,7 @@ def install(plugin_root, skills_dir, apply=False):
             # The alias routes directly to its explicit native plugin skill. No keyword classifier.
             description={'lightning':'即时探索与轻量创作','brainstorming':'研究构想与方案规划','engineering':'研究实施与开发协同','giver':'研究分支与版本管理','vrpet':'唤起悬浮研究伴侣'}[name]
             body='---\nname: '+name+'\ndescription: Vibe Research 显式命令入口，'+description+'。\n---\n\n'
+            body+='macOS 先读取 `~/.config/vibe-research/launcher.json` 的 `python` 绝对路径（配置过 XDG_CONFIG_HOME 时读取对应目录），全部 Python 命令使用该解释器；不要调用系统 python3 开发工具占位程序。\n\n'
             body+='读取固定插件入口 `'+str(src/'SKILL.md')+'` 并执行该模式。插件根为 `'+str(plugin_root)+'`；按该原生命令入口执行，不分类匹配自由文本。\n'
             (target/'SKILL.md').write_text(body,encoding='utf8')
             (target/'agents').mkdir(exist_ok=True)
@@ -41,7 +43,7 @@ def install(plugin_root, skills_dir, apply=False):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--plugin-root',default=str(Path(__file__).resolve().parents[1]))
-    p.add_argument('--skills-dir',default=str(Path.home()/'.codex/skills'))
+    p.add_argument('--skills-dir',default=str(Path(os.environ.get('CODEX_HOME', str(Path.home()/'.codex')))/'skills'))
     p.add_argument('--install',action='store_true',help='Without this flag, only check for conflicts')
     a=p.parse_args()
     try: print(json.dumps(install(a.plugin_root,a.skills_dir,a.install),ensure_ascii=False,indent=2))

@@ -1,4 +1,4 @@
-# Vibe Research 0.11.0
+# Vibe Research 0.11.1
 
 在 Codex 中组织研究构想、文献证据、开发实验与版本历史。完整安装与使用指南见 [仓库 README](https://github.com/misiote/vibe-research-codex#readme)，平台依赖与更新见 [INSTALL.md](https://github.com/misiote/vibe-research-codex/blob/main/INSTALL.md)。
 
@@ -42,7 +42,7 @@ python3 scripts/workbench.py --workspace ~/VibeResearch --no-open
 python3 runtime/bin/vr --help
 ```
 
-伴侣支持 `--status`、`--toggle`、`--stop`。macOS 依赖 AppKit / WebKit 与首次构建的 `clang`；Windows 使用 WebView2，源码无预编译程序时需要 .NET 8 SDK；Linux 需要 GTK 3 / WebKitGTK 图形桌面，也可使用浏览器工作台。
+伴侣支持 `--status`、`--toggle`、`--stop`。macOS 在线安装自动准备专用 Python，随包通用伴侣无需编译或 clang；Windows 使用 WebView2，源码无预编译程序时需要 .NET 8 SDK；Linux 需要 GTK 3 / WebKitGTK 图形桌面，也可使用浏览器工作台。
 
 研究数据与工具代码分开。单项目 bundle 包含研究库、工作历史、检索队列和已登记附件，不含外部工程代码、凭据或 Codex 对话；恢复到新目录并先做诊断。完整保留所有项目、Brainstorming 空间和 giver 谱系，请另备份整个工作区。更新或卸载插件不会删除独立工作区。
 

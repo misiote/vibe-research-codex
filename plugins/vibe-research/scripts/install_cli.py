@@ -15,6 +15,8 @@ def default_config_dir():
 
 
 def default_bin_dir():
+    if os.environ.get("VIBE_RESEARCH_BIN_DIR"):
+        return Path(os.environ["VIBE_RESEARCH_BIN_DIR"]).expanduser()
     if os.name == "nt":
         return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / "VibeResearch/bin"
     return Path.home() / ".local/bin"
@@ -73,6 +75,7 @@ def main():
         print(json.dumps({"workspace":str(workspace),"port":port,"plugin_root":str(root)},ensure_ascii=False,indent=2))
         return
     python_args=["-X","utf8"] if os.name == "nt" else []
+    os.environ.setdefault("VIBE_RESEARCH_PYTHON",sys.executable)
     command=[sys.executable,*python_args,str(root/"scripts/workbench.py"),"--workspace",str(workspace),"--port",str(port)]
     if args.no_open: command.append("--no-open")
     raise SystemExit(subprocess.call(command))
@@ -97,7 +100,7 @@ def main():
     bin_dir.mkdir(parents=True, exist_ok=True)
     config_dir.mkdir(parents=True, exist_ok=True)
     config_file = config_dir / "launcher.json"
-    config_file.write_text(json.dumps({"workspace": str(workspace), "port": args.port, "plugin_root": str(plugin_root)}, ensure_ascii=False, indent=2) + "\n", encoding="utf8")
+    config_file.write_text(json.dumps({"workspace": str(workspace), "port": args.port, "plugin_root": str(plugin_root), "python": str(Path(sys.executable).resolve())}, ensure_ascii=False, indent=2) + "\n", encoding="utf8")
 
     helper = bin_dir / "vr-workbench.py"
     helper.write_text(launcher_source(config_file, plugin_root), encoding="utf8")

@@ -2,10 +2,10 @@
 
 ## 在线安装（推荐）
 
-先安装支持 `codex plugin` 的 Codex 和 Python 3.9+。macOS / Linux 运行：
+macOS 预先安装并登录支持 `codex plugin` 的 Codex App 即可；不要求预装 Python、pip、Git、Homebrew 或 Command Line Tools。最低构建目标 macOS 12，同时须满足 Codex App 的系统要求。Windows/Linux 仍需 Python 3.9+，未验证可用性。macOS / Linux 运行：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.sh -o /tmp/vibe-research-install.sh && sh /tmp/vibe-research-install.sh
+curl -fsSL 'https://raw.githubusercontent.com/misiote/vibe-research-codex/main/install-online.sh?v=0.11.1' -o /tmp/vibe-research-install.sh && sh /tmp/vibe-research-install.sh
 ```
 
 Windows PowerShell 运行：
@@ -35,7 +35,7 @@ Windows 在 `-File` 后的脚本路径后追加同样选项。`--ref` 可指定�
 
 再次执行在线命令会安装当前版本；保留旧源码和研究工作区，并在安装根目录写入 `installed.json` 记录本次提交与路径。安装失败时不要删除研究工作区；按错误提示补齐依赖后重试。已有源码被修改时不会覆盖，可用新的 `--install-dir`。若安装进程被强制终止，确认进程已退出后再清理报错指定的 `.install-lock` 目录。
 
-系统依赖仍按下面的平台说明准备。安装器不会自动获取管理员权限、安装 Python / Codex、处理机构授权或重启应用。`vr-workbench` 的 bin 目录不在 PATH 时，按安装输出加入 PATH；也可直接调用输出的完整命令路径。
+Mac 安装器会自动准备专用 Python（不会安装或改动系统 Python），不要求系统开发工具；Windows/Linux 的依赖仍按下面说明准备。安装器不会获取管理员权限、自动安装 Codex、处理机构授权或重启应用。`vr-workbench` 的 bin 目录不在 PATH 时，按安装输出加入 PATH；也可直接调用输出的完整命令路径。
 
 ### 旧下载目录导致来源失效
 
@@ -56,13 +56,28 @@ Release 附件对应其标签版本，可能早于 `main`；下载前请核对�
 
 ## 共同要求
 
-- Python 3.9 或更高版本。
+- 在线安装的 macOS 自动准备专用 Python；手动源码安装和其他平台需要 Python 3.9 或更高版本。
 - Codex CLI 可以在终端中运行；安装器会调用 `codex plugin marketplace add` 和 `codex plugin add`。
 - 解压整个压缩包，保持 `.agents/`、`plugins/` 与安装脚本的相对位置。
 - 安装后重启 ChatGPT/Codex。插件详情提供“打开 Vibe Research 工作台”的默认提示。macOS、Windows 和有图形桌面的 Linux 会在 Vibe Research 项目对话中唤起收起的悬浮研究伴侣，点击后才显示工作台。
 - 安装器同时创建 `vr-workbench`（Windows 为 `vr-workbench.cmd`）终端命令，默认工作区是用户主目录下的 `VibeResearch`。可在安装前设置 `VIBE_RESEARCH_WORKSPACE` 改变位置。
 
 ## macOS
+
+### 纯净环境的依赖与验证边界
+
+推荐使用在线安装。流程只依赖 macOS 自带的 shell、curl、tar、shasum 等系统命令及已安装的 Codex App；不会执行系统 Python / Git 的开发工具占位程序。
+
+- 自动下载 Python Standalone Builds 的 CPython 3.12.16 / 20261026，对 Apple Silicon 和 Intel 分别核对固定 SHA-256，保存到 `~/.local/share/vibe-research/runtimes`。完整发行包中的许可文件保留，来源为 [Astral 官方发行](https://github.com/astral-sh/python-build-standalone/releases/tag/20261026)。无需 Homebrew、sudo 或编译；下载显示进度，中断后可续传。
+- PDF 使用随包 pypdf wheel，执行 `pip --isolated --no-index --no-deps`，不在安装时访问 PyPI。来源、版本与许可见插件 `vendor/README.md`。
+- macOS 伴侣随包提供 arm64 / x86_64 通用二进制，对源码与二进制摘要做核验，再复制到本机 App bundle。终端入口、技能别名和 launcher 配置记录专用 Python 的绝对路径，不要求修改 PATH。
+- 原源码和研究数据保留。专用运行时用 `VIBE_RESEARCH_RUNTIME_DIR` 改变存放位置；高级用户明确提供 `VIBE_RESEARCH_PYTHON` 时可使用自己的解释器，此时自行负责其 PDF 依赖。
+
+验证包括：屏蔽 Python / Git / clang 的 shell 流程、真实官方运行时下载与摘要、独立 Python 下的插件安装、离线 PDF、工作台 HTTP 和原生伴侣启动。Apple Silicon 已实际运行；Intel 提供通用二进制、固定运行时和 CI 校验，不能将架构检查等同于所有 Intel 机器实测。尚未用抹机虚拟机覆盖所有 macOS 版本。
+
+伴侣采用 ad-hoc 签名，当前没有 Developer ID 公证。安装器不删除 quarantine、不关闭 Gatekeeper、不绕过设备管理策略；若设备策略拦截，按系统提示处理。正常网络可达、磁盘空间足够、Codex 可用是安装前提，无法保证任意网络和系统策略下必定成功。
+
+下面是已具备 Python 时的手动源码安装：
 
 双击 `安装Vibe Research.command`。如果 Gatekeeper 阻止运行，在 Finder 中右键该文件并选择“打开”。
 

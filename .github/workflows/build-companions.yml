@@ -15,6 +15,9 @@ on:
       - "install-online.ps1"
       - "scripts/bootstrap.py"
       - "tests/test_online_install.py"
+      - "tests/test_clean_macos.py"
+      - "scripts/build-macos-companion.sh"
+      - "scripts/check-clean-macos.sh"
       - ".gitattributes"
       - ".github/workflows/build-companions.yml"
   push:
@@ -76,17 +79,22 @@ jobs:
         run: |
           ${{ matrix.python }} -X utf8 -m unittest discover -s tests -p test_platform_compatibility.py -v
           ${{ matrix.python }} -X utf8 -m unittest discover -s tests -p test_online_install.py -v
+          ${{ matrix.python }} -X utf8 -m unittest discover -s tests -p test_clean_macos.py -v
 
   macos-check:
     needs: release-audit
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v7.0.1
-      - name: Compile AppKit companion
-        run: >-
-          clang plugins/vibe-research/scripts/companion/macos/main.m
-          -O -fobjc-arc -framework Cocoa -framework QuartzCore -framework WebKit
-          -o "$RUNNER_TEMP/VibeResearchCompanion"
+      - name: Verify shipped universal companion
+        run: |
+          lipo plugins/vibe-research/scripts/companion/macos/prebuilt/VibeResearchCompanion -verify_arch arm64 x86_64
+          codesign --verify --strict plugins/vibe-research/scripts/companion/macos/prebuilt/VibeResearchCompanion
+          otool -L plugins/vibe-research/scripts/companion/macos/prebuilt/VibeResearchCompanion
+      - name: Test managed runtime with developer tools masked
+        run: sh scripts/check-clean-macos.sh
+      - name: Compile source as a maintainer check
+        run: clang plugins/vibe-research/scripts/companion/macos/main.m -O -fobjc-arc -framework Cocoa -framework QuartzCore -framework WebKit -o "$RUNNER_TEMP/VibeResearchCompanion"
 
   linux-check:
     needs: release-audit
