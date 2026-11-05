@@ -6,3 +6,5 @@ body,body[data-project-theme]{background:var(--bg);color:var(--ink);margin:0}a{c
 .project-research summary[data-active=true]{color:#d9ecff;border-color:#648eb6;background:#25405a}
 
 .brainstorm-tabs a,.brainstorm-tabs button,.brainstorm-tabs span{box-sizing:border-box;display:inline-flex;align-items:center;min-height:40px;line-height:1.4}.project-navigation{min-height:48px}
+
+.project-navigation-title,.project-research,.notes-controls h2,.settings-provider h3{min-width:0;overflow-wrap:anywhere}.notes-controls .primary{max-width:100%;white-space:normal}.project-context .project-navigation-title{flex-basis:180px}
